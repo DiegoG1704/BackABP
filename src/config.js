@@ -1,9 +1,16 @@
-import { config } from "dotenv";
+const { config } = require("dotenv");
+
 
 config()
- export const PORT =process.env.PORT || 4000
- export const DB_USER = process.env.DB_USER || 'root'
- export const DB_HOST = process.env.DB_HOST || 'localhost'
- export const DB_PASSWORD = process.env.DB_PASSWORD || ''
- export const DB_DATABASE = process.env.DB_DATABASE || 'Interfaz'
- export const DB_PORT = process.env.DB_PORT || 3306
+module.exports = {
+    // PORT: 3000,
+    // DB_USER: 'garcgfzx_MasSalud',
+    // DB_HOST: 'localhost',
+    // DB_PASSWORD: 'Qe7bqWl[I2Z,',
+    // DB_DATABASE: 'garcgfzx_ABP'
+    PORT: 3000,
+    DB_USER: 'root',
+    DB_HOST: 'localhost',
+    DB_PASSWORD: '',
+    DB_DATABASE: 'interfazusuarios'
+  };

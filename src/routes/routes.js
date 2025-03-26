@@ -1,5 +1,5 @@
-import { Router } from "express";
-import {
+const { Router } = require("express");
+const {
     getUsuario, loginUsuario, postRol, crearUsuario, getUsuariosId,FotoPerfil, upload,verificarToken,
     refreshToken,me,logoutUsuario,
     Notificaciones,
@@ -15,40 +15,43 @@ import {
     PostPago,
     editPersonal,
     Reiniciar,
-    Suspender
-} from "../controller/UserController.js";
+    Suspender,
+    getAfiliadosCount
+} = require("../controller/UserController.js");
 
 const router = Router();
 
 router.post('/login', loginUsuario);
 // Crear un nuevo usuario
-router.post('/CreateUsuario', crearUsuario);
+router.post('/CreateUsuario',verificarToken, crearUsuario);
 
 // Obtener lista de usuarios
-router.get('/list', getUsuario);
+router.get('/list',verificarToken, getUsuario);
 
 // Obtener usuario por ID
-router.get('/distritos', getUsuariosId);
+router.get('/distritos',verificarToken, getUsuariosId);
 
-router.post('/CreateGrupo', postRol);
+router.post('/CreateGrupo',verificarToken, postRol);
 
-router.get('/getGrupos',getGrupo)
+router.get('/getGrupos',verificarToken,getGrupo)
 
-router.get('/getFechPago/:id',getFechPago)
+router.get('/getFechPago/:id',verificarToken,getFechPago)
 
-router.patch('/editCampo/:id',EditCampo)
+router.get('/afiliadosCount',verificarToken,getAfiliadosCount)
 
-router.post ('/PostPago/:id',PostPago)
+router.patch('/editCampo/:id',verificarToken,EditCampo)
 
-router.patch('/editPersonal/:id',editPersonal)
-router.patch('/Reiniciar/:id',Reiniciar)
-router.patch('/Suspender/:id',Suspender)
+router.post ('/PostPago/:id',verificarToken,PostPago)
 
-router.get('/getMetodo',getMetodo)
+router.patch('/editPersonal/:id',verificarToken,editPersonal)
+router.patch('/Reiniciar/:id',verificarToken,Reiniciar)
+router.patch('/Suspender/:id',verificarToken,Suspender)
 
-router.post('/CreateMetodo', posMetodo);
+router.get('/getMetodo',verificarToken,getMetodo)
 
-router.post('/CreateGrupo', posGrupo);
+router.post('/CreateMetodo',verificarToken, posMetodo);
+
+router.post('/CreateGrupo',verificarToken, posGrupo);
 
 router.post('/CreateTelefono/:id',verificarToken,postTelefono)
 
@@ -64,4 +67,4 @@ router.post('/refresh-token',refreshToken)
 router.get("/me",verificarToken,me)
 router.post("/logout",verificarToken,logoutUsuario)
 
-export default router;
+module.exports = router;

@@ -1,10 +1,8 @@
-import multer from "multer";
-import pool from "../database.js";
-import jwt from 'jsonwebtoken';
-import axios from "axios";
-import { query } from "express";
+const multer = require("multer");
+const pool = require("../database.js");
+const jwt = require('jsonwebtoken');
 
-export const crearUsuario = async (req, res) => {
+const crearUsuario = async (req, res) => {
     const {
       dni, ruc, nombre, apellido, direccion, distritoId, 
       nombreBodega, metodoAfiliacion, referencia, correo, 
@@ -62,8 +60,25 @@ export const crearUsuario = async (req, res) => {
       connection.release();
     }
   };
+
+  const getAfiliadosCount = async (req, res) => {
+    const query = `
+        SELECT 
+            SUM(CASE WHEN estadoSocio IN (1, 2) THEN 1 ELSE 0 END) AS activos,
+            SUM(CASE WHEN estadoSocio = 3 THEN 1 ELSE 0 END) AS suspendidos
+        FROM Afiliados;
+    `;
+    
+    try {
+        const [results] = await pool.query(query);
+        res.status(200).json({ activos: results[0].activos, suspendidos: results[0].suspendidos });
+    } catch (err) {
+        console.error('Error al obtener la cantidad de afiliados:', err);
+        res.status(500).json({ message: 'Error al obtener la cantidad de afiliados' });
+    }
+};
   
-  export const getUsuario = async (req, res) => {
+const getUsuario = async (req, res) => {
     const query = `
         SELECT 
             a.id, 
@@ -159,7 +174,7 @@ export const crearUsuario = async (req, res) => {
     }
 };
 
-export const EditCampo = async (req, res) => {
+const EditCampo = async (req, res) => {
     const { id } = req.params;
     const { campo, valor } = req.body; // Obtenemos el campo y valor desde el cuerpo de la solicitud
 
@@ -177,7 +192,7 @@ export const EditCampo = async (req, res) => {
     }
 };
 
-export const getGrupo =async(req,res) =>{
+const getGrupo =async(req,res) =>{
     const query ='SELECT * FROM grupo'
     try {
         const [results] = await pool.query(query);
@@ -188,7 +203,7 @@ export const getGrupo =async(req,res) =>{
     }
 }
 
-export const getMetodo = async(req,res) =>{
+const getMetodo = async(req,res) =>{
     const query ='SELECT * FROM metodoafiliacion'
     try {
         const [results] = await pool.query(query);
@@ -199,7 +214,7 @@ export const getMetodo = async(req,res) =>{
     }
 }
 
-export const getFechPago = async (req, res) => {
+const getFechPago = async (req, res) => {
     const { id } = req.params;
     const query = 'SELECT * FROM fechapago WHERE afiliadoId = ?';
 
@@ -244,7 +259,7 @@ export const getFechPago = async (req, res) => {
     }
 };
 
-export const getUsuariosId = async (req, res) => {
+const getUsuariosId = async (req, res) => {
     const query = 'SELECT * FROM Distrito';
 
     try {
@@ -256,7 +271,7 @@ export const getUsuariosId = async (req, res) => {
     }
 };
 
-export const PostPago = async (req, res) => {
+const PostPago = async (req, res) => {
     const { id } = req.params;
     const query = 'INSERT INTO fechapago (afiliadoId) VALUES (?)';  // NOW() para insertar la fecha actual
     try {
@@ -269,7 +284,7 @@ export const PostPago = async (req, res) => {
     }
 };
 
-export const editPersonal = async (req, res) => {
+const editPersonal = async (req, res) => {
     const { id } = req.params;
     const { dni, ruc, nombre, apellido } = req.body;
     
@@ -287,7 +302,7 @@ export const editPersonal = async (req, res) => {
     }
 };
 
-export const Reiniciar = async (req, res) => {
+const Reiniciar = async (req, res) => {
     const { id } = req.params;  // Obtenemos el ID del socio desde los parámetros de la URL
     const estadoSocio = 1;  // Establecemos el estado del socio a "activo" (1)
     
@@ -312,7 +327,7 @@ export const Reiniciar = async (req, res) => {
     }
 };
 
-export const Suspender = async (req, res) => {
+const Suspender = async (req, res) => {
     const { id } = req.params;  // Obtenemos el ID del socio desde los parámetros de la URL
     const estadoSocio = 3;  // Establecemos el estado del socio a "activo" (1)
     
@@ -337,8 +352,6 @@ export const Suspender = async (req, res) => {
     }
 };
 
-
-
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, 'uploads/');  // Carpeta donde se guardarán las imágenes
@@ -348,9 +361,9 @@ const storage = multer.diskStorage({
     }
 });
 
-export const upload = multer({ storage: storage });
+const upload = multer({ storage: storage });
 
-export const FotoPerfil = async (req, res) => {
+const FotoPerfil = async (req, res) => {
     try {
         const Id = req.params.id;
         const imagePath = req.file.filename;  // Obtener el nombre del archivo guardado
@@ -378,62 +391,91 @@ function generateRefreshToken(payload) {
     return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '5h' });
 }
 
-export const loginUsuario = async (req, res) => {
-    const { usuario, contraseña } = req.body;
+// const loginUsuario = async (req, res) => {
+//     const { usuario, contraseña } = req.body;
 
-    if (!usuario || !contraseña) {
+//     if (!usuario || !contraseña) {
+//         return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+//     }
+
+//     const query = 'SELECT * FROM Usuario WHERE usuario = ?';
+
+//     try {
+//         // Buscar el usuario por nombre de usuario
+//         const [rows] = await pool.query(query, [usuario]);
+
+//         if (rows.length === 0) {
+//             return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
+//         }
+
+//         const usuarioDb = rows[0];  // Cambié el nombre para evitar conflicto
+
+//         // Comparar la contraseña proporcionada con la almacenada (sin encriptación)
+//         if (contraseña !== usuarioDb.contraseña) {
+//             return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
+//         }
+
+//         // Crear el payload del token con información relevante del usuario
+//         const tokenPayload = {
+//             id: usuarioDb.id,
+//             nombre: usuarioDb.nombre,
+//             apellido: usuarioDb.apellido,
+//         };
+
+//         // Generar Access Token y Refresh Token
+//         const accessToken = generateAccessToken(tokenPayload);
+//         const refreshToken = generateRefreshToken(tokenPayload);
+
+//         // Configuración para el refreshToken (5 horas)
+//         res.cookie('refreshToken', refreshToken, {
+//             httpOnly: true,
+//             secure: process.env.NODE_ENV === 'production',
+//             maxAge: 5 * 60 * 60 * 1000,  // 5 horas
+//             sameSite: 'None',
+//         });
+
+//         // Configuración para el accessToken (1 hora)
+//         res.cookie('accessToken', accessToken, {
+//             httpOnly: true,
+//             secure: process.env.NODE_ENV === 'production',
+//             maxAge: 1 * 60 * 60 * 1000,  // 1 hora
+//             sameSite: 'None',
+//         });
+
+//         // Responder con éxito, incluyendo los datos del usuario y el access token generado
+//         return res.status(200).json({
+//             success: true,
+//             message: 'Bienvenido',
+//             token: accessToken,  // Enviar el accessToken en la respuesta
+//         });
+
+//     } catch (error) {
+//         console.error('Error del servidor:', error);
+//         res.status(500).json({ message: 'Error del servidor' });
+//     }
+// };
+
+const loginUsuario = async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
         return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
     }
 
-    const query = 'SELECT * FROM Usuario WHERE usuario = ?';
+    if (username !== 'username' || password !== 'username') {
+        return res.status(401).json({ error: 'Credenciales incorrectas' });
+      }
 
     try {
-        // Buscar el usuario por nombre de usuario
-        const [rows] = await pool.query(query, [usuario]);
+        // Crear un objeto de payload para el token (puede incluir información adicional)
+        const payload = { username };
 
-        if (rows.length === 0) {
-            return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
-        }
+        // Crear el token con una clave secreta (idealmente debería ser una clave más segura)
+        const token = jwt.sign(payload, 'Diego123', { expiresIn: '1h' }); // El token expira en 1 hora
 
-        const usuarioDb = rows[0];  // Cambié el nombre para evitar conflicto
-
-        // Comparar la contraseña proporcionada con la almacenada (sin encriptación)
-        if (contraseña !== usuarioDb.contraseña) {
-            return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
-        }
-
-        // Crear el payload del token con información relevante del usuario
-        const tokenPayload = {
-            id: usuarioDb.id,
-            nombre: usuarioDb.nombre,
-            apellido: usuarioDb.apellido,
-        };
-
-        // Generar Access Token y Refresh Token
-        const accessToken = generateAccessToken(tokenPayload);
-        const refreshToken = generateRefreshToken(tokenPayload);
-
-        // Configuración para el refreshToken (5 horas)
-        res.cookie('refreshToken', refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            maxAge: 5 * 60 * 60 * 1000,  // 5 horas
-            sameSite: 'None',
-        });
-
-        // Configuración para el accessToken (1 hora)
-        res.cookie('accessToken', accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            maxAge: 1 * 60 * 60 * 1000,  // 1 hora
-            sameSite: 'None',
-        });
-
-        // Responder con éxito, incluyendo los datos del usuario y el access token generado
+        // Responder con el token
         return res.status(200).json({
-            success: true,
-            message: 'Bienvenido',
-            token: accessToken,  // Enviar el accessToken en la respuesta
+          access_token: token,  // Devolver el token generado
         });
 
     } catch (error) {
@@ -441,38 +483,59 @@ export const loginUsuario = async (req, res) => {
         res.status(500).json({ message: 'Error del servidor' });
     }
 };
+// const verificarToken = async (req, res, next) => {
+//     const { accessToken } = req.cookies;  // Obtenemos el accessToken desde las cookies
 
-export const verificarToken = async (req, res, next) => {
-    const { accessToken } = req.cookies;  // Obtenemos el accessToken desde las cookies
+//     if (!accessToken) {
+//         // Si no hay accessToken, intentamos renovar el token
+//         const tokenRenovado = await refreshToken(req, res);  // Llamamos a refreshToken asincrónicamente
 
-    if (!accessToken) {
-        // Si no hay accessToken, intentamos renovar el token
-        const tokenRenovado = await refreshToken(req, res);  // Llamamos a refreshToken asincrónicamente
+//         if (!tokenRenovado) {
+//             return res.status(401).json({ message: 'No autorizado, no se pudo renovar el token' });
+//         }
 
-        if (!tokenRenovado) {
-            return res.status(401).json({ message: 'No autorizado, no se pudo renovar el token' });
-        }
+//         // Si el token se renovó correctamente, procedemos al siguiente middleware
+//         return next();  // Añadimos "return" para evitar que se ejecute código posterior
+//     } else {
+//         // Si hay un accessToken, verificamos su validez
+//         jwt.verify(accessToken, process.env.JWT_SECRET, (err, decoded) => {
+//             if (err) {
+//                 return res.status(401).json({ message: 'Token inválido o expirado', error: err.message });
+//             }
 
-        // Si el token se renovó correctamente, procedemos al siguiente middleware
-        return next();  // Añadimos "return" para evitar que se ejecute código posterior
-    } else {
-        // Si hay un accessToken, verificamos su validez
-        jwt.verify(accessToken, process.env.JWT_SECRET, (err, decoded) => {
-            if (err) {
-                return res.status(401).json({ message: 'Token inválido o expirado', error: err.message });
-            }
+//             // Si el token es válido, guardamos la información del usuario decodificada en req.usuario
+//             req.usuario = decoded;  // Guardamos los datos del usuario decodificados
+//             console.log("Usuario verificado:", req.usuario);
 
-            // Si el token es válido, guardamos la información del usuario decodificada en req.usuario
-            req.usuario = decoded;  // Guardamos los datos del usuario decodificados
-            console.log("Usuario verificado:", req.usuario);
+//             // Continuamos con el siguiente middleware o ruta
+//             return next();  // Añadimos "return" aquí para evitar que se ejecute código posterior
+//         });
+//     }
+// };
 
-            // Continuamos con el siguiente middleware o ruta
-            return next();  // Añadimos "return" aquí para evitar que se ejecute código posterior
-        });
+const verificarToken = (req, res, next) => {
+    // Obtener el token del encabezado Authorization
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+  
+    if (!token) {
+      return res.status(401).json({ error: 'Acceso denegado. Token no proporcionado.' });
     }
-};
+  
+    try {
+      // Verificar el token utilizando la clave secreta
+      const decoded = jwt.verify(token, 'Diego123');
+  
+      // Almacenar los datos del usuario decodificados en el request (opcional)
+      req.user = decoded;
+  
+      // Continuar con la siguiente función de middleware o ruta
+      next();
+    } catch (error) {
+      return res.status(400).json({ error: 'Token no válido' });
+    }
+  };
 
-export const postTelefono = async (req, res) => {
+const postTelefono = async (req, res) => {
     const { id } = req.params; // El id del afiliado
     try {
       const { numero } = req.body; // El número de teléfono que se recibe en el cuerpo de la solicitud
@@ -488,7 +551,7 @@ export const postTelefono = async (req, res) => {
     }
   };
 
-  export const postFechaPago = async (req, res) => {
+const postFechaPago = async (req, res) => {
     const { id } = req.params; // El id del afiliado
     try {
       // Obtener la fecha de hoy en formato 'YYYY-MM-DD'
@@ -509,7 +572,7 @@ export const postTelefono = async (req, res) => {
     }
   };  
 
-export const postRol = async (req, res) => {
+const postRol = async (req, res) => {
     try {
         const { nombre } = req.body;
 
@@ -523,7 +586,8 @@ export const postRol = async (req, res) => {
         return res.status(500).json({ error: 'Error inserting data' });
     }
 };
-export const posGrupo = async (req, res) => {
+
+const posGrupo = async (req, res) => {
     try {
         const { nombre } = req.body;
 
@@ -538,7 +602,7 @@ export const posGrupo = async (req, res) => {
     }
 };
 
-export const posMetodo = async (req, res) => {
+const posMetodo = async (req, res) => {
     try {
         const { nombre } = req.body;
 
@@ -553,7 +617,7 @@ export const posMetodo = async (req, res) => {
     }
 };
 
-export const logoutUsuario= async (req, res) => {
+const logoutUsuario= async (req, res) => {
     try {
         // Eliminar las cookies de acceso y refresco
         res.clearCookie('accessToken', {
@@ -578,7 +642,7 @@ export const logoutUsuario= async (req, res) => {
 
 }
 
-export const refreshToken = async (req, res) => {
+const refreshToken = async (req, res) => {
     const { refreshToken } = req.cookies;
 
     if (!refreshToken) {
@@ -608,7 +672,8 @@ export const refreshToken = async (req, res) => {
         return false;
     }
 };
-export const me = async (req, res) => {
+
+const me = async (req, res) => {
     const user = req.usuario; // Los datos del usuario decodificados desde el JWT
 
     try {
@@ -680,7 +745,7 @@ export const me = async (req, res) => {
     }
 }
 
-export const Notificaciones = async (req, res) => {
+const Notificaciones = async (req, res) => {
     try {
         const { usuarioId } = req.params;
 
@@ -709,7 +774,7 @@ export const Notificaciones = async (req, res) => {
     }
 };
 
-export const CreateMensagge = async (req, res) => {
+const CreateMensagge = async (req, res) => {
     const { mensaje } = req.body;
 
     try {
@@ -722,3 +787,22 @@ export const CreateMensagge = async (req, res) => {
     }
 };
 
+module.exports = {
+    getUsuario, loginUsuario, postRol, crearUsuario, getUsuariosId,FotoPerfil,verificarToken,
+    refreshToken,me,logoutUsuario,
+    Notificaciones,
+    CreateMensagge,
+    getAfiliadosCount,
+    posMetodo,
+    postTelefono,
+    postFechaPago,
+    getGrupo,
+    getMetodo,
+    getFechPago,
+    EditCampo,
+    posGrupo,
+    PostPago,
+    editPersonal,
+    Reiniciar,
+    Suspender,upload,
+};
