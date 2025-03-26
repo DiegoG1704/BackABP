@@ -1,19 +1,18 @@
-import express from 'express';
-import { engine } from 'express-handlebars';
-import morgan from 'morgan';
-import path, { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import usuarios from './routes/routes.js';
-import cors from 'cors';
-import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv';
-
+const express = require('express');
+const { engine } = require('express-handlebars');
+const morgan = require('morgan');
+const path = require('path');
+const { join, dirname } = path; // No hace falta calcular __dirname, ya está disponible
+const usuarios = require('./routes/routes.js');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const dotenv = require('dotenv');
 
 const app = express();
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config();
 const corsOptions = {
-    origin: ['https://massalud.org.pe', 'http://localhost:3000','https://dniruc.apisperu.com','http://localhost:5173'], // Orígenes permitidos
+    origin: ['https://massalud.org.pe', 'http://localhost:3000','https://dniruc.apisperu.com','https://test.massalud.org.pe',"https://www.massalud.org.pe","http://localhost:5173"], // Orígenes permitidos
     methods: ['OPTIONS', 'GET', 'POST', 'PUT', 'DELETE','PATCH'], // Métodos HTTP permitidos
     credentials: true, // Permite enviar cookies y encabezados de autorización
 };
@@ -48,5 +47,5 @@ app.use(usuarios);
 // Estática
 app.use(express.static(join(__dirname, 'public')));
 
-export default app;
+module.exports = app;
 
