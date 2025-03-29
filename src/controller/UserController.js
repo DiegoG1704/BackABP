@@ -6,32 +6,32 @@ const crearUsuario = async (req, res) => {
     const {
       dni, ruc, nombre, apellido, direccion, distritoId, 
       nombreBodega, metodoAfiliacion, referencia, correo, 
-      observaciones, telefono, estadoWhatsapp, estadoGrupo
+      observaciones, telefono, estadoWhatsapp, estadoGrupo,codigo
     } = req.body;
   
     // Verificar campos obligatorios
-    if (!dni || !ruc || !nombre || !apellido || !distritoId || !correo || !nombreBodega || !estadoWhatsapp || !estadoGrupo || !telefono) {
+    if (!dni || !nombre || !apellido || !distritoId || !correo || !nombreBodega || !estadoWhatsapp || !estadoGrupo || !telefono || !codigo ) {
       return res.status(400).json({ error: "Faltan campos obligatorios" });
     }
   
     // Verificar si el RUC ya está registrado
-    const [existingRuc] = await pool.query('SELECT COUNT(*) AS count FROM Afiliados WHERE ruc = ?', [ruc]);
-    if (existingRuc[0].count > 0) {
-      return res.status(400).json({ error: 'El RUC ya está registrado.' });
-    }
+    // const [existingRuc] = await pool.query('SELECT COUNT(*) AS count FROM Afiliados WHERE ruc = ?', [ruc]);
+    // if (existingRuc[0].count > 0) {
+    //   return res.status(400).json({ error: 'El RUC ya está registrado.' });
+    // }
   
     const query = `
       INSERT INTO Afiliados (
         dni, ruc, nombre, apellido, direccion, distritoId, 
         nombreBodega, metodoAfiliacion, 
-        estadoWhatsapp, estadoGrupo, referencia, correo, observaciones
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        estadoWhatsapp, estadoGrupo, referencia, correo, observaciones,codigo
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
     `;
   
     const values = [
       dni, ruc, nombre, apellido, direccion, distritoId, 
       nombreBodega, metodoAfiliacion, estadoWhatsapp, estadoGrupo, 
-      referencia, correo, observaciones
+      referencia, correo, observaciones,codigo
     ];
   
     // Iniciar la transacción
@@ -83,7 +83,8 @@ const getUsuario = async (req, res) => {
         SELECT 
             a.id, 
             a.dni, 
-            a.ruc, 
+            a.ruc,
+            a.codigo, 
             a.nombre, 
             a.apellido, 
             a.direccion,
@@ -286,8 +287,10 @@ const PostPago = async (req, res) => {
 
 const editPersonal = async (req, res) => {
     const { id } = req.params;
-    const { dni, ruc, nombre, apellido } = req.body;
-    
+    const { dni, ruc, nombre, apellido} = req.body;
+
+    console.log('Datos recibidos:', { dni, ruc, nombre, apellido});
+
     // La consulta SQL corregida
     const query = 'UPDATE afiliados SET dni = ?, ruc = ?, nombre = ?, apellido = ? WHERE id = ?';
 
@@ -296,11 +299,11 @@ const editPersonal = async (req, res) => {
         const result = await pool.query(query, [dni, ruc, nombre, apellido, id]);
         res.status(200).json({ message: 'Éxito' });
     } catch (error) {
-        // Manejando el error correctamente
         console.error('Error al actualizar los datos:', error);
         res.status(500).json({ message: 'Error al actualizar los datos' });
     }
 };
+
 
 const Reiniciar = async (req, res) => {
     const { id } = req.params;  // Obtenemos el ID del socio desde los parámetros de la URL
@@ -384,7 +387,7 @@ const FotoPerfil = async (req, res) => {
 };
 
 function generateAccessToken(payload) {
-    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '5h' });
 }
 
 function generateRefreshToken(payload) {
@@ -456,19 +459,37 @@ function generateRefreshToken(payload) {
 // };
 
 const loginUsuario = async (req, res) => {
-    const { username, password } = req.body;
+    // const { username, password } = req.body;
+    const { usuario, contraseña } = req.body;
+    const query = 'SELECT * FROM Usuario WHERE usuario = ?';
 
-    if (!username || !password) {
+    // if (!username || !password) {
+    //     return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+    // }
+
+    if (!usuario || !contraseña) {
         return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
     }
 
-    if (username !== 'username' || password !== 'username') {
-        return res.status(401).json({ error: 'Credenciales incorrectas' });
-      }
+    // if (username !== 'username' || password !== 'username') {
+    //     return res.status(401).json({ error: 'Credenciales incorrectas' });
+    //   }
 
     try {
+        const [rows] = await pool.query(query, [usuario]);
+
+        if (rows.length === 0) {
+            return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
+        }
+        const usuarioDb = rows[0];
+        if (contraseña !== usuarioDb.contraseña) {
+            return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
+        }
         // Crear un objeto de payload para el token (puede incluir información adicional)
-        const payload = { username };
+        const payload = { 
+            // username 
+            usuario
+        };
 
         // Crear el token con una clave secreta (idealmente debería ser una clave más segura)
         const token = jwt.sign(payload, 'Diego123', { expiresIn: '1h' }); // El token expira en 1 hora
@@ -476,6 +497,8 @@ const loginUsuario = async (req, res) => {
         // Responder con el token
         return res.status(200).json({
           access_token: token,  // Devolver el token generado
+          usuario:usuarioDb.nombre,
+          contraseña:usuarioDb.apellido
         });
 
     } catch (error) {
@@ -483,6 +506,7 @@ const loginUsuario = async (req, res) => {
         res.status(500).json({ message: 'Error del servidor' });
     }
 };
+
 // const verificarToken = async (req, res, next) => {
 //     const { accessToken } = req.cookies;  // Obtenemos el accessToken desde las cookies
 
