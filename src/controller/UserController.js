@@ -1,6 +1,10 @@
 const multer = require("multer");
 const pool = require("../database.js");
 const jwt = require('jsonwebtoken');
+const csv = require("csv-parser");
+const xlsx = require("xlsx");
+const path = require('path');
+const fs = require("fs");
 
 const crearUsuario = async (req, res) => {
     const {
@@ -811,6 +815,68 @@ const CreateMensagge = async (req, res) => {
     }
 };
 
+const subirUsuariosDesdeExcel = (req, res) => {
+    // Verificar que el archivo exista
+    if (!req.file || !req.file.path) {
+        return res.status(400).json({ error: "No se ha subido ningún archivo válido." });
+    }
+
+    const results = [];
+    const filePath = req.file.path;
+    
+    // Verificar la extensión del archivo CSV
+    const fileExtension = path.extname(filePath); // Usando path.extname para obtener la extensión del archivo
+    if (fileExtension !== '.csv') {
+        return res.status(400).json({ error: "El archivo debe ser un CSV." });
+    }
+
+    // Leer el archivo CSV
+    fs.createReadStream(filePath)
+        .pipe(csv({ separator: ';' }))  // Usar el punto y coma como delimitador
+        .on('data', (data) => results.push(data))  // Almacenar los datos
+        .on('end', () => {
+            // Aquí puedes procesar los resultados del CSV
+            console.log("Datos del archivo CSV:", results);
+            
+            // Insertar los datos en la base de datos
+            const insertQuery = `
+                INSERT INTO afiliados (dni, ruc, nombre, apellido, direccion, nombrebodega, referencia, correo, observaciones, codigo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+            results.forEach((user) => {
+                const values = [
+                    user.dni,
+                    user.ruc,
+                    user.nombre,
+                    user.apellido,
+                    user.direccion,
+                    user.nombrebodega,
+                    user.referencia || null, // Si referencia es vacía, lo ponemos como null
+                    user.correo || null, // Si correo está vacío, lo ponemos como null
+                    user.observaciones || null, // Si observaciones está vacío, lo ponemos como null
+                    user.codigo
+                ];
+
+                // Ejecutar la inserción
+                pool.execute(insertQuery, values, (err, result) => {
+                    if (err) {
+                        console.error("Error al insertar datos en la base de datos:", err);
+                    } else {
+                        console.log(`Usuario con DNI ${user.dni} insertado correctamente.`);
+                    }
+                });
+            });
+
+            // Eliminar el archivo después de procesarlo
+            fs.unlinkSync(filePath);
+            
+            return res.status(200).json({ message: "Archivo CSV procesado y datos insertados correctamente." });
+        })
+        .on('error', (error) => {
+            console.error("Error al procesar el archivo CSV:", error);
+            return res.status(500).json({ error: "Error al procesar el archivo CSV." });
+        });
+};
 module.exports = {
     getUsuario, loginUsuario, postRol, crearUsuario, getUsuariosId,FotoPerfil,verificarToken,
     refreshToken,me,logoutUsuario,
@@ -828,5 +894,6 @@ module.exports = {
     PostPago,
     editPersonal,
     Reiniciar,
+    subirUsuariosDesdeExcel,
     Suspender,upload,
 };
