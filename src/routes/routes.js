@@ -16,7 +16,8 @@ const {
     editPersonal,
     Reiniciar,
     Suspender,
-    getAfiliadosCount
+    getAfiliadosCount,
+    subirUsuariosDesdeExcel
 } = require("../controller/UserController.js");
 
 const router = Router();
@@ -46,6 +47,8 @@ router.post ('/PostPago/:id',verificarToken,PostPago)
 router.patch('/editPersonal/:id',verificarToken,editPersonal)
 router.patch('/Reiniciar/:id',verificarToken,Reiniciar)
 router.patch('/Suspender/:id',verificarToken,Suspender)
+
+router.post("/subir-excel", upload.single("archivo"), subirUsuariosDesdeExcel);
 
 router.get('/getMetodo',verificarToken,getMetodo)
 
