@@ -4,6 +4,10 @@ const morgan = require('morgan');
 const path = require('path');
 const { join, dirname } = path; // No hace falta calcular __dirname, ya está disponible
 const usuarios = require('./routes/routes.js');
+const mostrar = require('./routes/routerGet.js');
+const enviar = require('./routes/routerPost.js')
+const editar = require('./routes/routerPut.js')
+const eliminar = require('./routes/routerDelete.js')
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const dotenv = require('dotenv');
@@ -12,7 +16,7 @@ const app = express();
 // const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config();
 const corsOptions = {
-    origin: ['https://massalud.org.pe', 'http://localhost:3000','https://dniruc.apisperu.com','https://test.massalud.org.pe',"https://www.massalud.org.pe","http://localhost:5173"], // Orígenes permitidos
+    origin: ['http://localhost:3000'], // Orígenes permitidos
     methods: ['OPTIONS', 'GET', 'POST', 'PUT', 'DELETE','PATCH'], // Métodos HTTP permitidos
     credentials: true, // Permite enviar cookies y encabezados de autorización
 };
@@ -43,6 +47,10 @@ app.get('/', async (req, res) => {
 });
 
 app.use(usuarios);
+app.use(mostrar);
+app.use(enviar);
+app.use(editar);
+app.use(eliminar);
 
 // Estática
 app.use(express.static(join(__dirname, 'public')));
