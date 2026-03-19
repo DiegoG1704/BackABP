@@ -1,10 +1,11 @@
 const multer = require("multer");
-const pool = require("../database.js");
+const {pool} = require("../database.js");
 const jwt = require('jsonwebtoken');
 const csv = require("csv-parser");
 const xlsx = require("xlsx");
 const path = require('path');
 const fs = require("fs");
+const moment = require('moment'); 
 
 const crearUsuario = async (req, res) => {
     const {
@@ -65,7 +66,7 @@ const crearUsuario = async (req, res) => {
     }
   };
 
-  const getAfiliadosCount = async (req, res) => {
+const getAfiliadosCount = async (req, res) => {
     const query = `
         SELECT 
             SUM(CASE WHEN estadoSocio IN (1, 2) THEN 1 ELSE 0 END) AS activos,
@@ -84,46 +85,41 @@ const crearUsuario = async (req, res) => {
   
 const getUsuario = async (req, res) => {
     const query = `
-        SELECT 
-            a.id, 
-            a.dni, 
-            a.ruc,
-            a.codigo, 
-            a.nombre, 
-            a.apellido, 
-            a.direccion,
-            a.distritoId,
-            a.estadoGrupo,
-            a.metodoAfiliacion,
-            d.nombre AS distrito,  -- Nombre del distrito
-            a.nombreBodega, 
-            a.estadoSocio, 
-            ma.nombre AS metodoAfiliacionName,  -- Nombre del método de afiliación
-            a.estadoWhatsapp, 
-            g.nombre AS estadoGrupoName,  -- Nombre del estado del grupo
-            a.referencia, 
-            a.correo, 
-            a.observaciones, 
-            a.fechaAfiliacion,
-            -- Subconsulta para obtener los teléfonos
-            (SELECT GROUP_CONCAT(t.numero ORDER BY t.id ASC) 
-             FROM Telefono t 
-             WHERE t.afiliadoId = a.id) AS telefonos
-        FROM 
-            Afiliados a
-        JOIN 
-            Distrito d 
-        ON 
-            a.distritoId = d.id
-        LEFT JOIN 
-            MetodoAfiliacion ma 
-        ON 
-            a.metodoAfiliacion = ma.id
-        LEFT JOIN 
-            Grupo g 
-        ON 
-            a.estadoGrupo = g.id;
-    `;
+    SELECT 
+        a.id, 
+        a.dni, 
+        a.ruc,
+        a.codigo, 
+        a.nombre, 
+        a.apellido, 
+        a.direccion,
+        a.distritoId,
+        a.estadoGrupo,
+        a.metodoAfiliacion,
+        d.nombre AS distrito,
+        a.nombreBodega, 
+        a.estadoSocio, 
+        ma.nombre AS metodoAfiliacionName,
+        a.estadoWhatsapp, 
+        g.nombre AS estadoGrupoName,
+        a.referencia, 
+        a.correo, 
+        a.observaciones, 
+        a.fechaAfiliacion,
+        (
+            SELECT JSON_ARRAYAGG(JSON_OBJECT('id', t.id, 'numero', t.numero)) 
+            FROM Telefono t 
+            WHERE t.afiliadoId = a.id
+        ) AS telefonos
+    FROM 
+        Afiliados a
+    JOIN 
+        Distrito d ON a.distritoId = d.id
+    LEFT JOIN 
+        MetodoAfiliacion ma ON a.metodoAfiliacion = ma.id
+    LEFT JOIN 
+        Grupo g ON a.estadoGrupo = g.id;
+`;
 
     try {
         const [results] = await pool.query(query);
@@ -165,7 +161,8 @@ const getUsuario = async (req, res) => {
                 return {
                     ...afiliado,
                     fechaAfiliacion: afiliado.fechaAfiliacion.toISOString().split('T')[0], // Formatear fecha a 'YYYY-MM-DD'
-                    telefonos: afiliado.telefonos ? afiliado.telefonos.split(',') : [],
+                    telefonos: afiliado.telefonos ? JSON.parse(afiliado.telefonos) : [],
+
                     estadoSocio: EstadoSocioMap[afiliado.estadoSocio] || 'Estado desconocido',
                     estadoWhatsapp: EstadoWhatsappMap[afiliado.estadoWhatsapp] || 'Estado desconocido',
                 };
@@ -218,6 +215,51 @@ const getMetodo = async(req,res) =>{
         res.status(500).json({ message: 'Error al obtener los metodoafiliacion' });
     }
 }
+const CambiarEstadoA2 = async (req, res) => {
+    const { id } = req.params;
+
+    const query = `
+        UPDATE fechapago
+        SET estado = 2
+        WHERE afiliadoId = ? AND estado = 1
+    `;
+
+    try {
+        const [result] = await pool.query(query, [id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'No se encontró un registro con estado 1 para actualizar.' });
+        }
+
+        res.status(200).json({ message: 'Estado actualizado de 1 a 2 correctamente.' });
+    } catch (error) {
+        console.error('Error al cambiar estado:', error);
+        res.status(500).json({ message: 'Error al cambiar el estado.' });
+    }
+};
+
+const CambiarEstadoA3 = async (req, res) => {
+    const { id } = req.params;
+
+    const query = `
+        UPDATE fechapago
+        SET estado = 3
+        WHERE afiliadoId = ? AND estado = 1
+    `;
+
+    try {
+        const [result] = await pool.query(query, [id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'No se encontró un registro con estado 1 para actualizar.' });
+        }
+
+        res.status(200).json({ message: 'Estado actualizado de 1 a 3 correctamente.' });
+    } catch (error) {
+        console.error('Error al cambiar estado:', error);
+        res.status(500).json({ message: 'Error al cambiar el estado.' });
+    }
+};
 
 const getFechPago = async (req, res) => {
     const { id } = req.params;
@@ -278,10 +320,16 @@ const getUsuariosId = async (req, res) => {
 
 const PostPago = async (req, res) => {
     const { id } = req.params;
-    const query = 'INSERT INTO fechapago (afiliadoId) VALUES (?)';  // NOW() para insertar la fecha actual
+    const { Year } = req.body;
+
+    if (!id || !Year) {
+        return res.status(400).json({ message: 'Faltan datos requeridos: id o Year' });
+    }
+
+    const query = 'INSERT INTO fechapago (afiliadoId, Year) VALUES (?, ?)';
+
     try {
-        // Ejecutamos la consulta con el id recibido
-        const [result] = await pool.query(query, [id]);  // El id se pasa como un array
+        const [result] = await pool.query(query, [id, Year]);
         res.status(200).json({ message: 'Éxito al registrar el pago' });
     } catch (error) {
         console.error('Error al registrar el pago:', error);
@@ -398,87 +446,12 @@ function generateRefreshToken(payload) {
     return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '5h' });
 }
 
-// const loginUsuario = async (req, res) => {
-//     const { usuario, contraseña } = req.body;
-
-//     if (!usuario || !contraseña) {
-//         return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
-//     }
-
-//     const query = 'SELECT * FROM Usuario WHERE usuario = ?';
-
-//     try {
-//         // Buscar el usuario por nombre de usuario
-//         const [rows] = await pool.query(query, [usuario]);
-
-//         if (rows.length === 0) {
-//             return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
-//         }
-
-//         const usuarioDb = rows[0];  // Cambié el nombre para evitar conflicto
-
-//         // Comparar la contraseña proporcionada con la almacenada (sin encriptación)
-//         if (contraseña !== usuarioDb.contraseña) {
-//             return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
-//         }
-
-//         // Crear el payload del token con información relevante del usuario
-//         const tokenPayload = {
-//             id: usuarioDb.id,
-//             nombre: usuarioDb.nombre,
-//             apellido: usuarioDb.apellido,
-//         };
-
-//         // Generar Access Token y Refresh Token
-//         const accessToken = generateAccessToken(tokenPayload);
-//         const refreshToken = generateRefreshToken(tokenPayload);
-
-//         // Configuración para el refreshToken (5 horas)
-//         res.cookie('refreshToken', refreshToken, {
-//             httpOnly: true,
-//             secure: process.env.NODE_ENV === 'production',
-//             maxAge: 5 * 60 * 60 * 1000,  // 5 horas
-//             sameSite: 'None',
-//         });
-
-//         // Configuración para el accessToken (1 hora)
-//         res.cookie('accessToken', accessToken, {
-//             httpOnly: true,
-//             secure: process.env.NODE_ENV === 'production',
-//             maxAge: 1 * 60 * 60 * 1000,  // 1 hora
-//             sameSite: 'None',
-//         });
-
-//         // Responder con éxito, incluyendo los datos del usuario y el access token generado
-//         return res.status(200).json({
-//             success: true,
-//             message: 'Bienvenido',
-//             token: accessToken,  // Enviar el accessToken en la respuesta
-//         });
-
-//     } catch (error) {
-//         console.error('Error del servidor:', error);
-//         res.status(500).json({ message: 'Error del servidor' });
-//     }
-// };
-
 const loginUsuario = async (req, res) => {
-    // const { username, password } = req.body;
     const { usuario, contraseña } = req.body;
-    const query = 'SELECT * FROM Usuario WHERE usuario = ?';
-
-    // if (!username || !password) {
-    //     return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
-    // }
-
+    const query = 'SELECT * FROM usuario WHERE usuario = ?';
     if (!usuario || !contraseña) {
         return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
     }
-
-    // if (username !== 'username' || password !== 'username') {
-    //     return res.status(401).json({ error: 'Credenciales incorrectas' });
-    //   }
-
     try {
         const [rows] = await pool.query(query, [usuario]);
 
@@ -490,24 +463,54 @@ const loginUsuario = async (req, res) => {
             return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
         }
         // Crear un objeto de payload para el token (puede incluir información adicional)
-        const payload = { 
-            // username 
-            usuario
-        };
+        const payload = { usuario };
 
-        // Crear el token con una clave secreta (idealmente debería ser una clave más segura)
-        const token = jwt.sign(payload, 'Diego123', { expiresIn: '1h' }); // El token expira en 1 hora
+        // Crear el access token (con vida corta)
+        const accessToken = jwt.sign(payload, 'Diego123', { expiresIn: '1h' });
 
-        // Responder con el token
-        return res.status(200).json({
-          access_token: token,  // Devolver el token generado
-          usuario:usuarioDb.nombre,
-          contraseña:usuarioDb.apellido
+        // Crear el refresh token (con vida más larga, por ejemplo 30 días)
+        const refreshToken = jwt.sign(payload, 'Diego123', { expiresIn: '30d' });
+
+        // Guardar el refresh token en la base de datos o en algún lugar seguro
+        // Por ejemplo, podrías guardar el refresh token asociado al usuario en la base de datos.
+
+        res.status(200).json({
+            access_token: accessToken,
+            refresh_token: refreshToken,  // Devolver el refresh token también
+            usuario: usuarioDb.nombre,
+            apellido: usuarioDb.apellido,
+            id: usuarioDb.id
         });
 
     } catch (error) {
         console.error('Error del servidor:', error);
         res.status(500).json({ message: 'Error del servidor' });
+    }
+};
+
+const refreshToken = async (req, res) => {
+    const { refresh_token } = req.body;
+
+    if (!refresh_token) {
+        return res.status(400).json({ error: 'Refresh token es requerido' });
+    }
+
+    try {
+        // Verificar el refresh token
+        jwt.verify(refresh_token, 'Diego123', async (err, decoded) => {
+            if (err) {
+                return res.status(403).json({ message: 'Refresh token inválido o expirado' });
+            }
+
+            // Crear un nuevo access token
+            const newAccessToken = jwt.sign({ usuario: decoded.usuario }, 'Diego123', { expiresIn: '1h' });
+
+            res.status(200).json({ access_token: newAccessToken });
+        });
+
+    } catch (error) {
+        console.error('Error al renovar el token:', error);
+        res.status(500).json({ message: 'Error al renovar el token' });
     }
 };
 
@@ -630,6 +633,29 @@ const posGrupo = async (req, res) => {
     }
 };
 
+const postDistrito = async (req, res) => {
+    const { nombre, departamento } = req.body;
+    try {
+        // Validación básica
+        if (!nombre || typeof nombre !== 'string') {
+            return res.status(400).json({ error: 'El nombre del distrito es obligatorio' });
+        }
+
+        if (!departamento || typeof departamento !== 'string') {
+            return res.status(400).json({ error: 'El nombre del departamento es obligatorio' });
+        }
+
+        // Insertar en la base de datos
+        const sql = 'INSERT INTO distrito (nombre, departamento) VALUES (?, ?)';
+        const [results] = await pool.query(sql, [nombre, departamento]);
+
+        res.status(201).json({ message: 'Distrito agregado exitosamente' });
+    } catch (error) {
+        console.error('Error inserting data:', error);
+        return res.status(500).json({ error: 'Error al insertar el distrito en la base de datos.' });
+    }
+};
+
 const posMetodo = async (req, res) => {
     try {
         const { nombre } = req.body;
@@ -670,36 +696,36 @@ const logoutUsuario= async (req, res) => {
 
 }
 
-const refreshToken = async (req, res) => {
-    const { refreshToken } = req.cookies;
+// const refreshToken = async (req, res) => {
+//     const { refreshToken } = req.cookies;
 
-    if (!refreshToken) {
-        return false;  // Si no hay refresh token, no podemos renovar
-    }
+//     if (!refreshToken) {
+//         return false;  // Si no hay refresh token, no podemos renovar
+//     }
 
-    try {
-        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-        const newAccessToken = generateAccessToken({ id: decoded.id, correo: decoded.correo });
+//     try {
+//         const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+//         const newAccessToken = generateAccessToken({ id: decoded.id, correo: decoded.correo });
 
-        // Si los encabezados ya fueron enviados, no hacemos nada más
-        if (res.headersSent) {
-            return false;
-        }
+//         // Si los encabezados ya fueron enviados, no hacemos nada más
+//         if (res.headersSent) {
+//             return false;
+//         }
 
-        res.cookie('accessToken', newAccessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production', // Solo en producción, usar https
-            sameSite: 'None',
-            maxAge: 1 * 60 * 60 * 1000, // 1 hora
-        });
+//         res.cookie('accessToken', newAccessToken, {
+//             httpOnly: true,
+//             secure: process.env.NODE_ENV === 'production', // Solo en producción, usar https
+//             sameSite: 'None',
+//             maxAge: 1 * 60 * 60 * 1000, // 1 hora
+//         });
 
-        // Retornar un valor para indicar que el token fue renovado
-        return true;
-    } catch (err) {
-        // Si ocurre un error al verificar el refreshToken, no renovar el accessToken
-        return false;
-    }
-};
+//         // Retornar un valor para indicar que el token fue renovado
+//         return true;
+//     } catch (err) {
+//         // Si ocurre un error al verificar el refreshToken, no renovar el accessToken
+//         return false;
+//     }
+// };
 
 const me = async (req, res) => {
     const user = req.usuario; // Los datos del usuario decodificados desde el JWT
@@ -877,9 +903,478 @@ const subirUsuariosDesdeExcel = (req, res) => {
             return res.status(500).json({ error: "Error al procesar el archivo CSV." });
         });
 };
+
+const subirTelefonoDesdeExcel = async (req, res) => {
+    // Verificar que el archivo exista
+    if (!req.file || !req.file.path) {
+        return res.status(400).json({ error: "No se ha subido ningún archivo válido." });
+    }
+
+    const results = [];
+    const filePath = req.file.path;
+
+    // Verificar la extensión del archivo CSV
+    const fileExtension = path.extname(filePath); // Usando path.extname para obtener la extensión del archivo
+    if (fileExtension !== '.csv') {
+        return res.status(400).json({ error: "El archivo debe ser un CSV." });
+    }
+
+    try {
+        // Leer el archivo CSV
+        await new Promise((resolve, reject) => {
+            fs.createReadStream(filePath)
+                .pipe(csv({ separator: ';' }))  // Usar el punto y coma como delimitador
+                .on('data', (data) => results.push(data))  // Almacenar los datos
+                .on('end', resolve)  // Resolver cuando termine la lectura del archivo
+                .on('error', reject);  // Rechazar si hay un error
+        });
+
+        console.log("Datos del archivo CSV:", results);
+
+        // Insertar los datos en la base de datos
+        // const insertQuery = `INSERT INTO telefono (numero, afiliadoId) VALUES (?, ?)`;
+
+        // for (const user of results) {
+        //     try {
+        //         // Obtener el id del afiliado
+        //         const [rows] = await pool.query('SELECT id FROM afiliados WHERE codigo = ?', [user.codigo]);
+
+        //         if (rows.length === 0) {
+        //             console.error(`No se encontró afiliado para el código: ${user.codigo}`);
+        //             continue; // Si no se encuentra el afiliado, se salta este registro
+        //         }
+
+        //         const afiliadoId = rows[0].id;
+        //         const values = [user.numero || null, afiliadoId];
+
+        //         // Ejecutar la inserción
+        //         await pool.execute(insertQuery, values);
+        //         console.log(`Usuario con DNI ${user.dni} insertado correctamente.`);
+        //     } catch (err) {
+        //         console.error("Error al procesar usuario:", err);
+        //     }
+        // }
+
+        // // Eliminar el archivo después de procesarlo
+        // fs.unlinkSync(filePath);
+
+        return res.status(200).json({ message: "Archivo CSV procesado y datos insertados correctamente." });
+    } catch (error) {
+        console.error("Error al procesar el archivo CSV:", error);
+        return res.status(500).json({ error: "Error al procesar el archivo CSV." });
+    }
+};
+
+const EditarEstadosDesdeExcel = async (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    const csv = require('csv-parser');
+
+    if (!req.file || !req.file.path) {
+        return res.status(400).json({ error: "No se ha subido ningún archivo válido." });
+    }
+
+    const results = [];
+    const codigosNoEncontrados = [];
+    const filePath = req.file.path;
+
+    const fileExtension = path.extname(filePath);
+    if (fileExtension !== '.csv') {
+        return res.status(400).json({ error: "El archivo debe ser un CSV." });
+    }
+
+    try {
+        // Leer el archivo CSV
+        await new Promise((resolve, reject) => {
+            fs.createReadStream(filePath)
+                .pipe(csv({ separator: ';' }))
+                .on('data', (data) => results.push(data))
+                .on('end', resolve)
+                .on('error', reject);
+        });
+
+        const updateQuery = `UPDATE afiliados SET estadosocio = ? WHERE id = ?`;
+
+        for (const user of results) {
+            try {
+                const [rows] = await pool.query('SELECT id FROM afiliados WHERE codigo = ?', [user.codigo]);
+
+                if (rows.length === 0) {
+                    codigosNoEncontrados.push(user.codigo);
+                    continue;
+                }
+
+                const afiliadoId = rows[0].id;
+                const values = [user.estadosocio || null, afiliadoId];
+
+                await pool.execute(updateQuery, values);
+                console.log(`Estado actualizado para código ${user.codigo}`);
+            } catch (err) {
+                console.error(`Error al procesar el código ${user.codigo}:`, err);
+            }
+        }
+
+        fs.unlinkSync(filePath);
+
+        return res.status(200).json({
+            message: "Archivo CSV procesado correctamente.",
+            codigosNoEncontrados,
+            totalProcesados: results.length,
+            totalActualizados: results.length - codigosNoEncontrados.length
+        });
+
+    } catch (error) {
+        console.error("Error al procesar el archivo CSV:", error);
+        return res.status(500).json({ error: "Error al procesar el archivo CSV." });
+    }
+};
+
+const EditarGrupoDesdeExcel = async (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    const csv = require('csv-parser');
+
+    if (!req.file || !req.file.path) {
+        return res.status(400).json({ error: "No se ha subido ningún archivo válido." });
+    }
+
+    const results = [];
+    const filePath = req.file.path;
+    const codigosNoEncontrados = [];
+    const gruposInsertados = [];
+
+    const fileExtension = path.extname(filePath);
+    if (fileExtension !== '.csv') {
+        return res.status(400).json({ error: "El archivo debe ser un CSV." });
+    }
+
+    try {
+        // Leer el archivo CSV
+        await new Promise((resolve, reject) => {
+            fs.createReadStream(filePath)
+                .pipe(csv({ separator: ';' }))
+                .on('data', (data) => results.push(data))
+                .on('end', resolve)
+                .on('error', reject);
+        });
+
+        const updateQuery = `UPDATE afiliados SET estadogrupo = ? WHERE id = ?`;
+
+        for (const user of results) {
+            try {
+                // Buscar o insertar el grupo
+                let [grupoRows] = await pool.query('SELECT id FROM grupo WHERE nombre = ?', [user.grupo]);
+
+                let grupoId;
+                if (grupoRows.length === 0) {
+                    const [insertResult] = await pool.query('INSERT INTO grupo (nombre) VALUES (?)', [user.grupo]);
+                    grupoId = insertResult.insertId;
+                    gruposInsertados.push(user.grupo);
+                    console.log(`Grupo "${user.grupo}" insertado con ID ${grupoId}`);
+                } else {
+                    grupoId = grupoRows[0].id;
+                }
+
+                // Buscar afiliado por código
+                const [afiliadoRows] = await pool.query('SELECT id FROM afiliados WHERE codigo = ?', [user.codigo]);
+
+                if (afiliadoRows.length === 0) {
+                    codigosNoEncontrados.push(user.codigo);
+                    console.warn(`Afiliado con código ${user.codigo} no encontrado.`);
+                    continue;
+                }
+
+                const afiliadoId = afiliadoRows[0].id;
+
+                // Actualizar grupo del afiliado
+                await pool.execute(updateQuery, [grupoId, afiliadoId]);
+                console.log(`Afiliado con código ${user.codigo} actualizado al grupo ID ${grupoId}`);
+            } catch (err) {
+                console.error(`Error al procesar el código ${user.codigo}:`, err);
+            }
+        }
+
+        fs.unlinkSync(filePath);
+
+        return res.status(200).json({
+            message: "Archivo CSV procesado correctamente.",
+            gruposInsertados,
+            codigosNoEncontrados,
+            totalProcesados: results.length,
+            totalActualizados: results.length - codigosNoEncontrados.length
+        });
+
+    } catch (error) {
+        console.error("Error al procesar el archivo CSV:", error);
+        return res.status(500).json({ error: "Error al procesar el archivo CSV." });
+    }
+};
+
+const EditarDistritoDesdeExcel = async (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    const csv = require('csv-parser');
+
+    if (!req.file || !req.file.path) {
+        return res.status(400).json({ error: "No se ha subido ningún archivo válido." });
+    }
+
+    const results = [];
+    const filePath = req.file.path;
+    const codigosNoEncontrados = [];
+    const gruposInsertados = [];
+
+    const fileExtension = path.extname(filePath);
+    if (fileExtension !== '.csv') {
+        return res.status(400).json({ error: "El archivo debe ser un CSV." });
+    }
+
+    try {
+        // Leer el archivo CSV
+        await new Promise((resolve, reject) => {
+            fs.createReadStream(filePath)
+                .pipe(csv({ separator: ';' }))
+                .on('data', (data) => results.push(data))
+                .on('end', resolve)
+                .on('error', reject);
+        });
+
+        const updateQuery = `UPDATE afiliados SET distritoid = ? WHERE id = ?`;
+
+        for (const user of results) {
+            try {
+                // Buscar o insertar el grupo
+                let [grupoRows] = await pool.query('SELECT id FROM distrito WHERE nombre = ?', [user.distrito]);
+
+                let grupoId;
+                if (grupoRows.length === 0) {
+                    const [insertResult] = await pool.query('INSERT INTO distrito (nombre) VALUES (?)', [user.distrito]);
+                    grupoId = insertResult.insertId;
+                    gruposInsertados.push(user.grupo);
+                    console.log(`Grupo "${user.grupo}" insertado con ID ${grupoId}`);
+                } else {
+                    grupoId = grupoRows[0].id;
+                }
+
+                // Buscar afiliado por código
+                const [afiliadoRows] = await pool.query('SELECT id FROM afiliados WHERE codigo = ?', [user.codigo]);
+
+                if (afiliadoRows.length === 0) {
+                    codigosNoEncontrados.push(user.codigo);
+                    console.warn(`Afiliado con código ${user.codigo} no encontrado.`);
+                    continue;
+                }
+
+                const afiliadoId = afiliadoRows[0].id;
+
+                // Actualizar grupo del afiliado
+                await pool.execute(updateQuery, [grupoId, afiliadoId]);
+                console.log(`Afiliado con código ${user.codigo} actualizado al grupo ID ${grupoId}`);
+            } catch (err) {
+                console.error(`Error al procesar el código ${user.codigo}:`, err);
+            }
+        }
+
+        fs.unlinkSync(filePath);
+
+        return res.status(200).json({
+            message: "Archivo CSV procesado correctamente.",
+            gruposInsertados,
+            codigosNoEncontrados,
+            totalProcesados: results.length,
+            totalActualizados: results.length - codigosNoEncontrados.length
+        });
+
+    } catch (error) {
+        console.error("Error al procesar el archivo CSV:", error);
+        return res.status(500).json({ error: "Error al procesar el archivo CSV." });
+    }
+};
+
+const subirFechasDesdeExcel = async (req, res) => {
+    // Verificar que el archivo exista
+    if (!req.file || !req.file.path) {
+        return res.status(400).json({ error: "No se ha subido ningún archivo válido." });
+    }
+
+    const results = [];
+    const filePath = req.file.path;
+
+    // Verificar la extensión del archivo CSV
+    const fileExtension = path.extname(filePath); // Usando path.extname para obtener la extensión del archivo
+    if (fileExtension !== '.csv') {
+        return res.status(400).json({ error: "El archivo debe ser un CSV." });
+    }
+
+    try {
+        // Leer el archivo CSV
+        await new Promise((resolve, reject) => {
+            fs.createReadStream(filePath)
+                .pipe(csv({ separator: ';' }))  // Usar el punto y coma como delimitador
+                .on('data', (data) => results.push(data))  // Almacenar los datos
+                .on('end', resolve)  // Resolver cuando termine la lectura del archivo
+                .on('error', reject);  // Rechazar si hay un error
+        });
+        // Insertar los datos en la base de datos
+        const insertQuery = `INSERT INTO fechapago (fecha, afiliadoId) VALUES (?, ?)`;
+
+        for (const user of results) {
+            try {
+                // Verificar y convertir la fecha
+                const formattedDate = moment(user.fecha, 'DD/MM/YYYY');
+                if (!formattedDate.isValid()) {
+                    console.error(`Fecha inválida para el código ${user.codigo}: ${user.fecha}`);
+                    continue; // Si la fecha no es válida, se salta este registro
+                }
+
+                // Convertir a formato YYYY-MM-DD
+                const finalDate = formattedDate.format('YYYY-MM-DD');
+
+                // Obtener el id del afiliado
+                const [rows] = await pool.query('SELECT id FROM afiliados WHERE codigo = ?', [user.codigo]);
+
+                if (rows.length === 0) {
+                    console.error(`No se encontró afiliado para el código: ${user.codigo}`);
+                    continue; // Si no se encuentra el afiliado, se salta este registro
+                }
+
+                const afiliadoId = rows[0].id;
+                const values = [finalDate, afiliadoId];
+
+                // Ejecutar la inserción
+                await pool.execute(insertQuery, values);
+                console.log(`Fecha de pago insertada correctamente para el afiliado con código ${user.codigo}.`);
+            } catch (err) {
+                console.error("Error al procesar usuario:", err);
+            }
+        }
+
+        // Eliminar el archivo después de procesarlo
+        fs.unlinkSync(filePath);
+
+        return res.status(200).json({ message: "Archivo CSV procesado y datos insertados correctamente." });
+    } catch (error) {
+        console.error("Error al procesar el archivo CSV:", error);
+        return res.status(500).json({ error: "Error al procesar el archivo CSV." });
+    }
+};
+
+const putTelefono = async (req, res) => {
+    const { id } = req.params; // id del teléfono que se va a actualizar
+    const { numero } = req.body; // El nuevo número de teléfono
+
+    try {
+        // Verificar si el teléfono existe
+        const sqlCheck = 'SELECT * FROM Telefono WHERE id = ?';
+        const [checkResults] = await pool.query(sqlCheck, [id]);
+
+        if (checkResults.length === 0) {
+            return res.status(404).json({ error: 'Teléfono no encontrado' });
+        }
+
+        // Actualizar el número de teléfono
+        const sqlUpdate = 'UPDATE Telefono SET numero = ? WHERE id = ?';
+        await pool.query(sqlUpdate, [numero, id]);
+
+        res.status(200).json({ message: 'Número de teléfono actualizado correctamente' });
+    } catch (error) {
+        console.error('Error updating phone number:', error);
+        res.status(500).json({ error: 'Error al actualizar el teléfono' });
+    }
+};
+
+const deleteTelefono = async (req, res) => {
+    const { id } = req.params; // id del teléfono a eliminar
+
+    try {
+        // Verificar si el teléfono existe
+        const sqlCheck = 'SELECT * FROM Telefono WHERE id = ?';
+        const [checkResults] = await pool.query(sqlCheck, [id]);
+
+        if (checkResults.length === 0) {
+            return res.status(404).json({ error: 'Teléfono no encontrado' });
+        }
+
+        // Eliminar el teléfono
+        const sqlDelete = 'DELETE FROM Telefono WHERE id = ?';
+        await pool.query(sqlDelete, [id]);
+
+        res.status(200).json({ message: 'Teléfono eliminado correctamente' });
+    } catch (error) {
+        console.error('Error deleting phone:', error);
+        res.status(500).json({ error: 'Error al eliminar el teléfono' });
+    }
+};
+
+const AñoDesdeExcel = async (req, res) => {
+
+    if (!req.file || !req.file.path) {
+        return res.status(400).json({ error: "No se ha subido ningún archivo válido." });
+    }
+
+    const results = [];
+    const codigosNoEncontrados = [];
+    const filePath = req.file.path;
+
+    const fileExtension = path.extname(filePath);
+    if (fileExtension !== '.csv') {
+        return res.status(400).json({ error: "El archivo debe ser un CSV." });
+    }
+
+    try {
+        // Leer el archivo CSV
+        await new Promise((resolve, reject) => {
+            fs.createReadStream(filePath)
+                .pipe(csv({ separator: ';' }))
+                .on('data', (data) => results.push(data))
+                .on('end', resolve)
+                .on('error', reject);
+        });
+
+        const updateQuery = `UPDATE fechapago SET año = ? WHERE id = ? AND afiliadoId = ?`;
+
+        for (const user of results) {
+            const { id, afiliadoId, año } = user;
+        
+            if (!id || !afiliadoId || !año) {
+                codigosNoEncontrados.push(user);
+                continue;
+            }
+        
+            try {
+                const values = [año, id, afiliadoId];
+                const [result] = await pool.execute(updateQuery, values);
+        
+                if (result.affectedRows === 0) {
+                    codigosNoEncontrados.push(user);
+                } else {
+                    console.log(`Actualizacion correctamente`);
+                }
+            } catch (err) {
+                console.error(`Error al procesar el registro id=${id}:`, err);
+                codigosNoEncontrados.push(user);
+            }
+        }        
+
+        fs.unlinkSync(filePath);
+
+        return res.status(200).json({
+            message: "Archivo CSV procesado correctamente.",
+            codigosNoEncontrados,
+            totalProcesados: results.length,
+            totalActualizados: results.length - codigosNoEncontrados.length
+        });
+
+    } catch (error) {
+        console.error("Error al procesar el archivo CSV:", error);
+        return res.status(500).json({ error: "Error al procesar el archivo CSV." });
+    }
+};
+
 module.exports = {
     getUsuario, loginUsuario, postRol, crearUsuario, getUsuariosId,FotoPerfil,verificarToken,
     refreshToken,me,logoutUsuario,
+    putTelefono,deleteTelefono,subirTelefonoDesdeExcel,subirFechasDesdeExcel,AñoDesdeExcel,
     Notificaciones,
     CreateMensagge,
     getAfiliadosCount,
@@ -895,5 +1390,6 @@ module.exports = {
     editPersonal,
     Reiniciar,
     subirUsuariosDesdeExcel,
-    Suspender,upload,
+    Suspender,upload,EditarEstadosDesdeExcel,EditarGrupoDesdeExcel,EditarDistritoDesdeExcel,postDistrito,
+    CambiarEstadoA2,CambiarEstadoA3
 };

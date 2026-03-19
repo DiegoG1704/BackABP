@@ -8,9 +8,9 @@ module.exports = {
     // DB_HOST: 'localhost',
     // DB_PASSWORD: 'Qe7bqWl[I2Z,',
     // DB_DATABASE: 'garcgfzx_ABP'
-    PORT: 3000,
+    PORT: 4000,
     DB_USER: 'root',
     DB_HOST: 'localhost',
     DB_PASSWORD: '',
-    DB_DATABASE: 'interfazusuarios'
+    DB_DATABASE: 'ellafit'
   };
