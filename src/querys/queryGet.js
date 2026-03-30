@@ -235,14 +235,19 @@ const queryMe =`
         d.nombres,
         d.estado,
         d.telefono,
+        d.dni,
         d.idRol,
-        r.nombre AS rol
+        d.correo,
+        r.nombre AS rol,
+        rc.estado AS estadoModo
     FROM
         usuario u
     LEFT JOIN
         datos d ON d.id = u.idDatos
     LEFT JOIN
         rol r ON r.id = d.idRol
+    LEFT JOin
+        rol_config rc ON rc.userId = d.id
     WHERE
         u.id=?
 `;

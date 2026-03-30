@@ -1,6 +1,6 @@
 const { Router } = require("express");
 const { verificarToken } = require("../controller/UserController.js");
-const { getColor, getTalla, getPrenda, getModelo, getPrendaId, getMaterial, getRutas, getRol, getPersonal, getTaller, getDetallesProduccion, getPrendasProduccion, getDetallePrenda, getInformePrenda, getMe, getInforPrenda, getDetallesInforme, getPrendaModelo, getClientes, getPedidos, getPedidosId, getPrendaSobreventa, getAsistencia, getAsistenciaId, getAsistenciaDash} = require("../controller/ControllerGet.js");
+const { getColor, getTalla, getPrenda, getModelo, getPrendaId, getMaterial, getRutas, getRol, getPersonal, getTaller, getDetallesProduccion, getPrendasProduccion, getDetallePrenda, getInformePrenda, getMe, getInforPrenda, getDetallesInforme, getPrendaModelo, getClientes, getPedidos, getPedidosId, getPrendaSobreventa, getAsistencia, getAsistenciaId, getAsistenciaDash, getConfiguraciones} = require("../controller/ControllerGet.js");
 
 const routerGet = Router();
 
@@ -51,6 +51,8 @@ routerGet.get('/getAsistencia',verificarToken,getAsistencia)
 routerGet.get('/getAsistencia/general/:personaId',verificarToken,getAsistenciaId)
 
 routerGet.get('/getAsistencia/dashboard/:personaId',verificarToken,getAsistenciaDash)
+
+routerGet.get('/getConfiguraciones/:userId',verificarToken,getConfiguraciones)
 
 routerGet.get('/me/:id',getMe)
 module.exports = routerGet;

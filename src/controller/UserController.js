@@ -181,7 +181,7 @@ const EditCampo = async (req, res) => {
     const { campo, valor } = req.body; // Obtenemos el campo y valor desde el cuerpo de la solicitud
 
     // Construimos la consulta de actualización dinámica
-    const query = `UPDATE afiliados SET ${campo} = ? WHERE id = ?`;
+    const query = `UPDATE datos SET ${campo} = ? WHERE id = ?`;
 
     try {
         // Ejecutamos la consulta SQL

@@ -501,9 +501,44 @@ const getAsistenciaDash = async (req, res) => {
   }
 };
 
+const getConfiguraciones = async (req, res) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return res.status(400).json({ message: 'userId es requerido' });
+  }
+
+  const query = `
+    SELECT 
+      rc.id,
+      c.descripcion AS configuracion,
+      rc.estado
+    FROM 
+      rol_config rc
+    LEFT JOIN
+      configuraciones c ON c.id = rc.configId
+    WHERE
+      rc.userId = ?
+  `;
+
+  try {
+    const [result] = await pool.query(query, [userId]);
+
+    if (result.length === 0) {
+      return res.status(404).json({ message: 'No se encontraron configuraciones' });
+    }
+
+    res.status(200).json(result);
+
+  } catch (err) {
+    console.error('Error al obtener configuraciones:', err.message);
+    res.status(500).json({ message: 'Error al obtener las configuraciones' });
+  }
+};
+
 module.exports={
     getColor,getTalla,getPrenda,getModelo,getPrendaId,getMaterial,getRutas,getRol,getPersonal,
     getTaller,getDetallesProduccion,getPrendasProduccion,getDetallePrenda,getInformePrenda,getMe,
     getInforPrenda,getDetallesInforme,getPrendaModelo,getClientes,getPedidos,getPedidosId,getPrendaSobreventa,
-    getAsistencia,getAsistenciaId, getAsistenciaDash
+    getAsistencia,getAsistenciaId, getAsistenciaDash,getConfiguraciones
 }
