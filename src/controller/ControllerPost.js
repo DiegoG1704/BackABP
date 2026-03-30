@@ -108,6 +108,11 @@ const postPersonal = async (req, res) => {
       [usuario, contraseña, idDatos]
     );
 
+    await connection.query(
+      'INSERT INTO rol_config(configId,userId) VALUES (1, ?)',
+      [idDatos]
+    )
+
     await connection.commit();
     res.status(201).json({ message: 'Datos guardados correctamente' });
 

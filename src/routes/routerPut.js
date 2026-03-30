@@ -1,6 +1,6 @@
 const { Router } = require("express");
-const { verificarToken } = require("../controller/UserController.js");
-const { putAreasEstados, putInformes, putEstadosPedidos, PutCliente, putPersonal, putEstadoPersonal, putEditTaller, putRol } = require("../controller/Contollerput.js");
+const { verificarToken, EditCampo } = require("../controller/UserController.js");
+const { putAreasEstados, putInformes, putEstadosPedidos, PutCliente, putPersonal, putEstadoPersonal, putEditTaller, putRol, putCorreo, updateConfiguracion, updatePassword } = require("../controller/Contollerput.js");
 
 const routerPut = Router();
 
@@ -21,4 +21,12 @@ routerPut.put('/CambiarPersonal/:id',verificarToken,putEstadoPersonal)
 routerPut.put('/EditTaller/:id',verificarToken,putEditTaller)
 
 routerPut.put('/EditRol/:id',verificarToken,putRol)
+
+routerPut.put('/EditCampo/:id',verificarToken,EditCampo)
+
+routerPut.put('/AgregarCorreo/:id',verificarToken,putCorreo)
+
+routerPut.put('/putEstadoConfig/:id',verificarToken,updateConfiguracion)
+
+routerPut.put('/CambioPassword/:id',verificarToken,updatePassword)
 module.exports = routerPut;
