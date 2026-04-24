@@ -192,6 +192,20 @@ const putEditTaller = async (req, res) => {
   }
 }
 
+const putLeido= async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query(
+      'UPDATE notificaciones SET estado = 2 WHERE id = ?',
+      [id]
+    );
+    res.status(201).json({ message: 'notificion leida correctamente' });
+  } catch (error) {
+    console.error('Error al guardar datos:', error);
+    res.status(500).json({ error: 'Error al guardar los datos' });
+  }
+}
+
 const putRol = async (req, res) => {
   const { id } = req.params;
   const { nombre, rutas } = req.body; // rutas es array de IDs
@@ -263,6 +277,65 @@ const putCampo = async (req, res) => {
   }
 };
 
+const putCampoNeg = async (req, res) => {
+  const { id } = req.params;
+  const { campo, valor } = req.body;
+
+  const camposPermitidos = ["nombre", "direccion", "ruc"];
+
+  if (!camposPermitidos.includes(campo)) {
+    return res.status(400).json({ error: "Campo no permitido" });
+  }
+
+  const query = `UPDATE talleres SET ${campo} = ? WHERE idEncargado = ?`;
+
+  try {
+    await pool.query(query, [valor, id]);
+    res.status(200).json({ message: "Datos guardados correctamente" });
+  } catch (error) {
+    console.error("Error al guardar datos:", error);
+    res.status(500).json({ error: "Error al guardar los datos" });
+  }
+};
+
+const FotoPerfil = async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (!req.file) return res.status(400).json({ message: "No se recibió archivo" });
+    const imagePath = req.file.filename;
+
+    const query = "UPDATE datos SET fotoPerfil = ? WHERE id = ?";
+    const [result] = await pool.query(query, [imagePath, id]);
+
+    if (result.affectedRows === 0)
+      return res.status(404).json({ message: "Usuario no encontrado" });
+
+    res.status(201).json({ fotoPerfil: imagePath, message: "Éxito" });
+  } catch (err) {
+    console.error("Error actualizando la imagen de perfil:", err);
+    res.status(500).send("Error al actualizar la imagen de perfil");
+  }
+};
+
+const FotoTaller = async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (!req.file) return res.status(400).json({ message: "No se recibió archivo" });
+    const imagePath = req.file.filename;
+
+    const query = "UPDATE talleres SET imagen = ? WHERE idEncargado = ?";
+    const [result] = await pool.query(query, [imagePath, id]);
+
+    if (result.affectedRows === 0)
+      return res.status(404).json({ message: "Usuario no encontrado" });
+
+    res.status(201).json({ fotoPerfil: imagePath, message: "Éxito" });
+  } catch (err) {
+    console.error("Error actualizando la imagen de perfil:", err);
+    res.status(500).send("Error al actualizar la imagen de perfil");
+  }
+};
+
 module.exports={
     putAreasEstados,
     putInformes,
@@ -273,6 +346,9 @@ module.exports={
     putEditTaller,
     putRol,
     putCampo,
+    putCampoNeg,
     putCorreo,
-    updateConfiguracion,updatePassword
+    updateConfiguracion,
+    updatePassword,
+    FotoPerfil,FotoTaller,putLeido
 }

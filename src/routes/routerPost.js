@@ -1,6 +1,6 @@
 const { Router } = require("express");
 const { verificarToken } = require("../controller/UserController.js");
-const { postPrenda, postRol, postPersonal, postTaller, postProduccion, PostInformePrenda, PostColor, PostMaterial, PostCliente, PostVenta, PostObservacion, PostAsistencia } = require("../controller/ControllerPost.js");
+const { postPrenda, postRol, postPersonal, postTaller, postProduccion, PostInformePrenda, PostColor, PostMaterial, PostCliente, PostVenta, PostObservacion, PostAsistencia, PostNotificacines } = require("../controller/ControllerPost.js");
 
 
 const routerPost = Router();
@@ -28,5 +28,7 @@ routerPost.post('/PostVenta',verificarToken,PostVenta)
 routerPost.post('/PostObservacion/:idVenta',verificarToken,PostObservacion)
 
 routerPost.post('/PostAsistencia/:personaId',verificarToken,PostAsistencia)
+
+routerPost.post('/PostNotificaciones/:remitente',verificarToken,PostNotificacines)
 
 module.exports = routerPost;

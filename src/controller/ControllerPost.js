@@ -304,6 +304,24 @@ const PostColor = async (req, res) => {
   }
 };
 
+const PostNotificacines = async (req, res) => {
+  const {remitente} = req.params
+  const {mensaje,titulo,userId}= req.body
+  const query = 'INSERT INTO notificaciones(mensaje,titulo,remitente,userId) VALUES (?,?,?,?)'
+  try {
+    await pool.query(query,[mensaje,titulo,userId,remitente])
+    return res.status(201).json({
+      message: 'mensaje enviado correctamente'
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: 'Error interno del servidor al guardar el informe',
+      error
+    });
+  }
+};
+
 const PostMaterial = async (req, res) => {
   const {nombre}= req.body
   const query = 'INSERT INTO material(nombre) VALUES (?)'
@@ -508,5 +526,5 @@ const PostAsistencia = async (req, res) => {
 
 module.exports={
   PostVenta,postPrenda,postRol,postPersonal,postTaller, postProduccion,PostInformePrenda,PostColor,
-  PostMaterial, PostCliente, PostObservacion,PostAsistencia
+  PostMaterial, PostCliente, PostObservacion,PostAsistencia,PostNotificacines
 }
