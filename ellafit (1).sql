@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 30-03-2026 a las 23:06:15
+-- Tiempo de generación: 25-04-2026 a las 01:17:53
 -- Versión del servidor: 10.4.10-MariaDB
 -- Versión de PHP: 7.1.33
 
@@ -47,7 +47,12 @@ INSERT INTO `asistencia` (`id`, `personaId`, `fecha`, `horaIngreso`, `horaSalida
 (3, 2, '2026-03-18', '10:00:24', NULL, '2'),
 (4, 4, '2026-03-18', '10:03:08', NULL, '2'),
 (5, 2, '2026-03-21', '17:06:12', NULL, '2'),
-(6, 4, '2026-03-23', '10:53:43', NULL, '2');
+(6, 4, '2026-03-23', '10:53:43', NULL, '2'),
+(7, 4, '2026-04-02', '20:52:28', NULL, '2'),
+(8, 1, '2026-04-11', '15:44:55', NULL, '2'),
+(9, 1, '2026-04-12', '20:52:12', NULL, '2'),
+(10, 1, '2026-04-15', '15:34:54', NULL, '2'),
+(11, 1, '2026-04-18', '22:00:39', NULL, '2');
 
 -- --------------------------------------------------------
 
@@ -130,21 +135,22 @@ CREATE TABLE `datos` (
   `telefono` int(20) DEFAULT NULL,
   `idRol` int(11) DEFAULT NULL,
   `fecha` date NOT NULL DEFAULT current_timestamp(),
-  `correo` varchar(50) DEFAULT NULL
+  `correo` varchar(50) DEFAULT NULL,
+  `fotoPerfil` varchar(500) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Volcado de datos para la tabla `datos`
 --
 
-INSERT INTO `datos` (`id`, `nombres`, `estado`, `dni`, `telefono`, `idRol`, `fecha`, `correo`) VALUES
-(1, 'Carlos Cavalier', '1', 23456789, 987654321, 1, '2025-05-12', NULL),
-(2, 'Alexandra de la Cruz Carranza', '1', 34567890, 999458360, 2, '2025-05-12', 'Ejemplo45@gmail.com'),
-(4, 'John Llave', '1', 27440013, 999458372, 7, '2025-05-13', 'dgst1704@gmail.com'),
-(5, 'MILAGROS JULIA TERESA', '1', 27440013, 999458377, 1, '2025-05-14', NULL),
-(6, 'RICARDO GERMAN', '1', 29607137, 978787878, 1, '2025-05-14', NULL),
-(7, 'ALEJANDRA', '1', 29607137, 999458378, 1, '2026-03-16', NULL),
-(8, 'Matias Capuñay Soto', '1', 72217894, 982919282, 1, '2026-03-23', NULL);
+INSERT INTO `datos` (`id`, `nombres`, `estado`, `dni`, `telefono`, `idRol`, `fecha`, `correo`, `fotoPerfil`) VALUES
+(1, 'Carlos Cavalier', '1', 23456789, 987654321, 1, '2025-05-12', NULL, '1775190049170-IMG_0797.JPG'),
+(2, 'Alexandra de la Cruz Carranza', '1', 34567890, 999458360, 2, '2025-05-12', 'Ejemplo45@gmail.com', '1775327841269-AltaSalud.jpg'),
+(4, 'John Llave 2', '1', 27440013, 999458372, 7, '2025-05-13', 'dgst1704@gmail.com', '1775846268041-Gemini_Generated_Image_7axk987axk987axk.png'),
+(5, 'MILAGROS JULIA TERESA', '1', 27440013, 999458377, 1, '2025-05-14', NULL, NULL),
+(6, 'RICARDO GERMAN', '1', 29607137, 978787878, 1, '2025-05-14', NULL, NULL),
+(7, 'ALEJANDRA', '1', 29607137, 999458378, 1, '2026-03-16', NULL, NULL),
+(8, 'Matias Capuñay Soto', '1', 72217894, 982919282, 1, '2026-03-23', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -294,7 +300,8 @@ INSERT INTO `detalle_venta` (`id`, `idVenta`, `idPrenda`, `idTalla`, `cantidad`)
 (26, 32, 22, 4, 1),
 (27, 34, 22, 1, 1),
 (28, 35, 19, 3, 5),
-(29, 37, 23, 1, 5);
+(29, 37, 23, 1, 5),
+(30, 41, 21, 1, 1);
 
 -- --------------------------------------------------------
 
@@ -429,6 +436,33 @@ INSERT INTO `modelo` (`id`, `nombre`, `precioU`, `precioM`, `idMaterial`) VALUES
 -- --------------------------------------------------------
 
 --
+-- Estructura de tabla para la tabla `notificaciones`
+--
+
+CREATE TABLE `notificaciones` (
+  `id` int(11) NOT NULL,
+  `mensaje` varchar(500) DEFAULT NULL,
+  `userId` int(11) DEFAULT NULL,
+  `estado` enum('1','2') NOT NULL DEFAULT '1',
+  `fechaEnvio` datetime NOT NULL DEFAULT current_timestamp(),
+  `titulo` varchar(200) DEFAULT NULL,
+  `remitente` int(11) DEFAULT NULL,
+  `archivo` varchar(300) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Volcado de datos para la tabla `notificaciones`
+--
+
+INSERT INTO `notificaciones` (`id`, `mensaje`, `userId`, `estado`, `fechaEnvio`, `titulo`, `remitente`, `archivo`) VALUES
+(1, 'Prueba de notificaciones', 1, '2', '2026-04-11 00:00:00', 'Prueba', 4, NULL),
+(2, 'Preuba de envio de acctividades a la usuaria alexandra de la cruz carranza', 2, '2', '2026-04-13 16:01:29', 'Trabajo de Almacen', 1, NULL),
+(3, 'revisa la produccon q se realizo con camisas', 4, '2', '2026-04-15 15:25:45', 'Revisa la Produccion', 1, NULL),
+(4, 'Prueba realizada correctamente revisar area de cortes', 4, '2', '2026-04-15 16:29:16', 'prueba echa', 1, NULL);
+
+-- --------------------------------------------------------
+
+--
 -- Estructura de tabla para la tabla `observacion`
 --
 
@@ -547,7 +581,7 @@ INSERT INTO `prenda_talla` (`id`, `idPrenda`, `idTalla`, `cantidad`) VALUES
 (47, 19, 2, 205),
 (48, 19, 3, 200),
 (49, 19, 4, 50),
-(51, 21, 1, 222),
+(51, 21, 1, 221),
 (52, 21, 2, 94),
 (53, 21, 3, 99),
 (54, 21, 4, 99),
@@ -649,7 +683,7 @@ CREATE TABLE `rol_config` (
 INSERT INTO `rol_config` (`id`, `configId`, `userId`, `estado`) VALUES
 (1, 1, 2, '2'),
 (2, 1, 4, '2'),
-(3, 1, 1, '1'),
+(3, 1, 1, '2'),
 (4, 1, 8, '2');
 
 -- --------------------------------------------------------
@@ -694,7 +728,9 @@ INSERT INTO `rol_vistas` (`id`, `idRol`, `idVistas`) VALUES
 (23, 7, 10),
 (24, 7, 12),
 (25, 2, 10),
-(30, 1, 4);
+(30, 1, 4),
+(31, 1, 13),
+(32, 1, 10);
 
 -- --------------------------------------------------------
 
@@ -727,17 +763,20 @@ CREATE TABLE `talleres` (
   `id` int(11) NOT NULL,
   `nombre` varchar(100) DEFAULT NULL,
   `direccion` varchar(150) DEFAULT NULL,
-  `idEncargado` int(11) DEFAULT NULL
+  `ruc` varchar(16) DEFAULT NULL,
+  `idEncargado` int(11) DEFAULT NULL,
+  `imagen` varchar(200) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Volcado de datos para la tabla `talleres`
 --
 
-INSERT INTO `talleres` (`id`, `nombre`, `direccion`, `idEncargado`) VALUES
-(1, 'Taller M.A', 'AV. JAVIER PRADO ESTE NRO. 1066 URB. CORPAC LIMA LIMA SAN ISIDRO', 5),
-(2, 'Textiles Encanto', 'Jr. Carlos Raygada #103 Urb. Condevilla', 6),
-(3, 'Taller M.A.G', 'MzA lote 20 los claveles Lurin II', 7);
+INSERT INTO `talleres` (`id`, `nombre`, `direccion`, `ruc`, `idEncargado`, `imagen`) VALUES
+(1, 'Taller M.A', 'AV. JAVIER PRADO ESTE NRO. 1066 URB. CORPAC LIMA LIMA SAN ISIDRO', '0', 5, NULL),
+(2, 'Textiles Encanto', 'Jr. Carlos Raygada #103 Urb. Condevilla', '0', 6, NULL),
+(3, 'Taller M.A.G', 'MzA lote 20 los claveles Lurin II', '0', 7, NULL),
+(4, 'EllaFit ', 'la victoria calle 32 ', '123322222419', 4, '1775846410175-plantillaNegocio.png');
 
 -- --------------------------------------------------------
 
@@ -807,7 +846,8 @@ INSERT INTO `venta` (`id`, `fecha`, `idUsuario`, `tipoPago`, `total`, `estado`, 
 (32, '2026-03-05 04:10:38', 4, '', 118, '3', 'calle almada', 888777990, '3'),
 (34, '2026-03-16 16:50:49', 4, '1', 118, '1', '', 0, '2'),
 (35, '2026-03-23 15:02:28', 4, '2', 118, '3', 'Direccion 123', 2147483647, '3'),
-(37, '2026-03-23 15:37:41', 4, '1', 590, '3', 'direccion45', 998291983, '1');
+(37, '2026-03-23 15:37:41', 4, '1', 590, '3', 'direccion45', 998291983, '1'),
+(41, '2026-04-19 03:02:39', 1, '1', 118, '1', '', 0, '2');
 
 -- --------------------------------------------------------
 
@@ -874,7 +914,8 @@ INSERT INTO `vistas` (`id`, `nombre`, `ruta`, `icono`) VALUES
 (9, 'Confirmacion', '/Principal/Page/ConfirmacionPedido', 'pi pi-clipboard'),
 (10, 'Asistencia', '/Principal/Page/Asistencia', 'pi pi-address-book'),
 (11, 'Talleres', '/Principal/Page/Talleres', 'pi pi-shop'),
-(12, 'Clientes', '/Principal/Page/Cliente', 'pi pi-users');
+(12, 'Clientes', '/Principal/Page/Cliente', 'pi pi-users'),
+(13, 'Documentos', '/Principal/Page/Documentos', 'pi pi-book');
 
 --
 -- Índices para tablas volcadas
@@ -958,6 +999,14 @@ ALTER TABLE `material`
 ALTER TABLE `modelo`
   ADD PRIMARY KEY (`id`),
   ADD KEY `modelo_ibfk_1` (`idMaterial`);
+
+--
+-- Indices de la tabla `notificaciones`
+--
+ALTER TABLE `notificaciones`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `notifiaciones_ibfk_1` (`userId`),
+  ADD KEY `notifiaciones_ibfk_2` (`remitente`);
 
 --
 -- Indices de la tabla `observacion`
@@ -1067,7 +1116,7 @@ ALTER TABLE `vistas`
 -- AUTO_INCREMENT de la tabla `asistencia`
 --
 ALTER TABLE `asistencia`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT de la tabla `cliente`
@@ -1109,7 +1158,7 @@ ALTER TABLE `detalle_produccion`
 -- AUTO_INCREMENT de la tabla `detalle_venta`
 --
 ALTER TABLE `detalle_venta`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
 
 --
 -- AUTO_INCREMENT de la tabla `informe`
@@ -1128,6 +1177,12 @@ ALTER TABLE `material`
 --
 ALTER TABLE `modelo`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
+
+--
+-- AUTO_INCREMENT de la tabla `notificaciones`
+--
+ALTER TABLE `notificaciones`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT de la tabla `observacion`
@@ -1175,7 +1230,7 @@ ALTER TABLE `rol_config`
 -- AUTO_INCREMENT de la tabla `rol_vistas`
 --
 ALTER TABLE `rol_vistas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
 
 --
 -- AUTO_INCREMENT de la tabla `talla`
@@ -1187,7 +1242,7 @@ ALTER TABLE `talla`
 -- AUTO_INCREMENT de la tabla `talleres`
 --
 ALTER TABLE `talleres`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT de la tabla `usuario`
@@ -1199,7 +1254,7 @@ ALTER TABLE `usuario`
 -- AUTO_INCREMENT de la tabla `venta`
 --
 ALTER TABLE `venta`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=42;
 
 --
 -- AUTO_INCREMENT de la tabla `venta_cliente`
@@ -1211,7 +1266,7 @@ ALTER TABLE `venta_cliente`
 -- AUTO_INCREMENT de la tabla `vistas`
 --
 ALTER TABLE `vistas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- Restricciones para tablas volcadas
@@ -1264,6 +1319,13 @@ ALTER TABLE `informe`
 --
 ALTER TABLE `modelo`
   ADD CONSTRAINT `modelo_ibfk_1` FOREIGN KEY (`idMaterial`) REFERENCES `material` (`id`);
+
+--
+-- Filtros para la tabla `notificaciones`
+--
+ALTER TABLE `notificaciones`
+  ADD CONSTRAINT `notifiaciones_ibfk_1` FOREIGN KEY (`userId`) REFERENCES `datos` (`id`),
+  ADD CONSTRAINT `notifiaciones_ibfk_2` FOREIGN KEY (`remitente`) REFERENCES `datos` (`id`);
 
 --
 -- Filtros para la tabla `observacion`

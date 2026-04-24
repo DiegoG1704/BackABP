@@ -1,6 +1,6 @@
 const { Router } = require("express");
-const { verificarToken, EditCampo } = require("../controller/UserController.js");
-const { putAreasEstados, putInformes, putEstadosPedidos, PutCliente, putPersonal, putEstadoPersonal, putEditTaller, putRol, putCorreo, updateConfiguracion, updatePassword } = require("../controller/Contollerput.js");
+const { verificarToken,upload } = require("../controller/UserController.js");
+const { putAreasEstados, putInformes, putEstadosPedidos, PutCliente, putPersonal, putEstadoPersonal, putEditTaller, putRol, putCorreo, updateConfiguracion, updatePassword, putCampoNeg, putCampo, FotoPerfil, FotoTaller, putLeido } = require("../controller/Contollerput.js");
 
 const routerPut = Router();
 
@@ -22,11 +22,19 @@ routerPut.put('/EditTaller/:id',verificarToken,putEditTaller)
 
 routerPut.put('/EditRol/:id',verificarToken,putRol)
 
-routerPut.put('/EditCampo/:id',verificarToken,EditCampo)
+routerPut.put('/EditCampo/:id',verificarToken,putCampo)
+
+routerPut.put('/EditCampoNeg/:id',verificarToken,putCampoNeg)
 
 routerPut.put('/AgregarCorreo/:id',verificarToken,putCorreo)
 
 routerPut.put('/putEstadoConfig/:id',verificarToken,updateConfiguracion)
 
 routerPut.put('/CambioPassword/:id',verificarToken,updatePassword)
+
+routerPut.put('/putLeido/:id',verificarToken,putLeido)
+
+routerPut.put('/CambioFotoPerfil/:id',verificarToken,upload.single('perfilUsuario'),FotoPerfil)
+
+routerPut.put('/CambioFotoNegocio/:id',verificarToken,upload.single('perfilNegocio'),FotoTaller)
 module.exports = routerPut;

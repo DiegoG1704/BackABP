@@ -74,7 +74,8 @@ const queryPersonal = `
         p.estado,
         DATE_FORMAT(p.fecha,'%d-%m-%Y') AS fecha,
         u.usuario,
-        u.contraseña
+        u.contraseña,
+        CONCAT(p.nombres, ' - ', r.nombre) AS nombre_rol
     FROM usuario u
     JOIN datos p ON p.id = u.idDatos
     JOIN rol r ON p.idRol = r.id
@@ -238,16 +239,24 @@ const queryMe =`
         d.dni,
         d.idRol,
         d.correo,
+        d.fotoPerfil,
         r.nombre AS rol,
-        rc.estado AS estadoModo
+        rc.estado AS estadoModo,
+        t.id As tallerId,
+        t.nombre AS nombreTaller,
+        t.imagen AS imagenTaller,
+        t.direccion,
+        t.ruc
     FROM
         usuario u
     LEFT JOIN
         datos d ON d.id = u.idDatos
     LEFT JOIN
         rol r ON r.id = d.idRol
-    LEFT JOin
+    LEFT JOIN
         rol_config rc ON rc.userId = d.id
+    LEFT JOIN
+        talleres t ON t.idEncargado = d.id
     WHERE
         u.id=?
 `;
