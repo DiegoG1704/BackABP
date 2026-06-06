@@ -524,7 +524,96 @@ const PostAsistencia = async (req, res) => {
   }
 };
 
+const postCanvas = async (req, res) => {
+  const { nombre, tipo, estructura,tamaño,orientacion } = req.body;
+
+  try {
+    // Insertar el rol y obtener el ID generado
+    const [rolResult] = await pool.query('INSERT INTO canvas (nombre, tipo, estructura,tamaño,orientacion) VALUES (?,?,?,?,?)', [nombre,tipo,JSON.stringify(estructura),tamaño,orientacion]);
+
+    res.status(201).json({ message: 'Datos guardados correctamente' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al guardar los datos', details: error.message });
+  }
+}
+
+const postModulos = async (req, res) => {
+  const { idUsuario, idVista } = req.body;
+
+  
+
+  try {
+    // 2. VALIDAR SI YA LO TIENE
+  const [existeModulo] = await pool.query(`
+      SELECT *
+      FROM usuario_vistas
+      WHERE idUsuario = ?
+      AND idVista = ?
+  `, [
+      idUsuario,
+      idVista
+  ]);
+
+  if (existeModulo.length > 0) {
+
+      return res.status(500).json({
+          error: 'El usuario ya tiene este módulo'
+      });
+
+  }
+    // Insertar el rol y obtener el ID generado
+    await pool.query('INSERT INTO usuario_vistas (idUsuario, idVista) VALUES (?,?)', [idUsuario,idVista]);
+
+    res.status(201).json({ message: 'Datos guardados correctamente' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al guardar los datos', details: error.message });
+  }
+}
+
+const postRegistro = async (req, res) => {
+  const { dni, nombres, telefono, usuario, contraseña } = req.body;
+
+  // Validación básica
+  if (!dni || !nombres || !telefono || !usuario || !contraseña) {
+    return res.status(400).json({ error: 'Faltan campos requeridos' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Insertar en tabla datos
+    const [datosResult] = await connection.query(
+      'INSERT INTO datos (dni, nombres, telefono, idRol) VALUES (?, ?, ?, 9)',
+      [dni, nombres, telefono, idRol]
+    );
+
+    const idDatos = datosResult.insertId;
+
+    // Insertar en tabla usuario
+    await connection.query(
+      'INSERT INTO usuario (usuario, contraseña, idDatos) VALUES (?, ?, ?)',
+      [usuario, contraseña, idDatos]
+    );
+
+    await connection.query(
+      'INSERT INTO rol_config(configId,userId) VALUES (1, ?)',
+      [idDatos]
+    )
+
+    await connection.commit();
+    res.status(201).json({ message: 'Datos guardados correctamente' });
+
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error al guardar datos:', error);
+    res.status(500).json({ error: 'Error al guardar los datos' });
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports={
   PostVenta,postPrenda,postRol,postPersonal,postTaller, postProduccion,PostInformePrenda,PostColor,
-  PostMaterial, PostCliente, PostObservacion,PostAsistencia,PostNotificacines
+  PostMaterial, PostCliente, PostObservacion,PostAsistencia,PostNotificacines,postCanvas,postRegistro,postModulos
 }

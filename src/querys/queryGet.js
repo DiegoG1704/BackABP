@@ -232,6 +232,7 @@ const queryDetallePrenda = `
 
 const queryMe =`
     SELECT
+        u.id AS idUser,
         d.id,
         d.nombres,
         d.estado,
@@ -261,20 +262,25 @@ const queryMe =`
         u.id=?
 `;
 
-const queryRutasUser =`
-    SELECT
+const queryRutasUser = `
+    SELECT DISTINCT
         v.nombre,
         v.ruta,
         v.icono
-    FROM
-        rol_vistas rv
-    LEFT JOIN
-        rol r ON r.id = rv.idRol
-    LEFT JOIN
-        vistas v ON v.id = rv.idVistas
+    FROM vistas v
+
+    LEFT JOIN rol_vistas rv
+        ON rv.idVistas = v.id
+
+    LEFT JOIN usuario_vistas uv
+        ON uv.idVista = v.id
+
     WHERE
-        rv.idRol = ?
-`
+        (
+            rv.idRol = ?
+            OR uv.idUsuario = ?
+        )
+`;
 
 const queryInformPren = 'SELECT * FROM informe WHERE idDetallePrenda =?'
 

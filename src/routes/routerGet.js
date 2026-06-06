@@ -1,6 +1,6 @@
 const { Router } = require("express");
 const { verificarToken } = require("../controller/UserController.js");
-const { getColor, getTalla, getPrenda, getModelo, getPrendaId, getMaterial, getRutas, getRol, getPersonal, getTaller, getDetallesProduccion, getPrendasProduccion, getDetallePrenda, getInformePrenda, getMe, getInforPrenda, getDetallesInforme, getPrendaModelo, getClientes, getPedidos, getPedidosId, getPrendaSobreventa, getAsistencia, getAsistenciaId, getAsistenciaDash, getConfiguraciones, getNotificaciones} = require("../controller/ControllerGet.js");
+const { getColor, getTalla, getPrenda, getModelo, getPrendaId, getMaterial, getRutas, getRol, getPersonal, getTaller, getDetallesProduccion, getPrendasProduccion, getDetallePrenda, getInformePrenda, getMe, getInforPrenda, getDetallesInforme, getPrendaModelo, getClientes, getPedidos, getPedidosId, getPrendaSobreventa, getAsistencia, getAsistenciaId, getAsistenciaDash, getConfiguraciones, getNotificaciones, getCanvas, getCanvasID, getPaquetes} = require("../controller/ControllerGet.js");
 
 const routerGet = Router();
 
@@ -42,6 +42,10 @@ routerGet.get('/getClientes',verificarToken,getClientes)
 
 routerGet.get('/getPedidos',verificarToken,getPedidos)
 
+routerGet.get('/getPlantillas',verificarToken,getCanvas)
+
+routerGet.get('/getPlantillasID/:id',verificarToken,getCanvasID)
+
 routerGet.get('/getPedidos/:id',verificarToken,getPedidosId)
 
 routerGet.get('/getSobreventa',verificarToken,getPrendaSobreventa)
@@ -55,6 +59,8 @@ routerGet.get('/getAsistencia/dashboard/:personaId',verificarToken,getAsistencia
 routerGet.get('/getConfiguraciones/:userId',verificarToken,getConfiguraciones)
 
 routerGet.get('/getNotificaciones/:userId',verificarToken,getNotificaciones)
+
+routerGet.get('/getPaquetes',verificarToken,getPaquetes)
 
 routerGet.get('/me/:id',getMe)
 module.exports = routerGet;

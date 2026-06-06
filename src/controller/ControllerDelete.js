@@ -36,6 +36,19 @@ const DeletePersonal = async (req, res)=>{
   }
 }
 
+const DeletePlantilla = async (req, res)=>{
+  const {id}= req.params
+  const query = 'DELETE FROM canvas WHERE id = ?'
+  try {
+    const [result]= await pool.query(query,[id])
+    res.status(200).json(result)
+  } catch (error) {
+    console.error('Error al obtener las prendas:', error);
+    res.status(500).json({ message: 'Error al obtener las prendas' });
+  }
+}
+
+
 const deleteRol = async (req, res) => {
   const { id } = req.params;
 
@@ -65,5 +78,5 @@ const deleteRol = async (req, res) => {
 
 
 module.exports={
-    DeleteCliente,DeleteTaller,deleteRol
+    DeleteCliente,DeleteTaller,deleteRol,DeletePlantilla
 }
