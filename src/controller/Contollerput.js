@@ -336,6 +336,20 @@ const FotoTaller = async (req, res) => {
   }
 };
 
+const putCanvas = async (req, res) => {
+  const {id}=req.params;
+  const { nombre, tipo, estructura,tamaño,orientacion } = req.body;
+
+  try {
+    // Insertar el rol y obtener el ID generado
+    const [rolResult] = await pool.query('UPDATE canvas SET nombre = ?, tipo=?, estructura=?, tamaño=?, orientacion=? WHERE id = ? ', [nombre,tipo,JSON.stringify(estructura),tamaño,orientacion,id]);
+
+    res.status(201).json({ message: 'Datos Actualizados correctamente' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al guardar los datos', details: error.message });
+  }
+}
+
 module.exports={
     putAreasEstados,
     putInformes,
@@ -350,5 +364,6 @@ module.exports={
     putCorreo,
     updateConfiguracion,
     updatePassword,
-    FotoPerfil,FotoTaller,putLeido
+    FotoPerfil,FotoTaller,putLeido,
+    putCanvas
 }

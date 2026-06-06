@@ -114,8 +114,9 @@ const getMe = async (req, res) => {
     }
 
     const idRol = DatosUsuarios[0].idRol;
+    const idUsuario = DatosUsuarios[0].idUser;
 
-    const [Rutas] = await pool.query(queryRutasUser, [idRol]);
+    const [Rutas] = await pool.query(queryRutasUser, [idRol,idUsuario]);
 
     res.status(200).json({
       datosUsuario: DatosUsuarios[0],
@@ -565,9 +566,81 @@ const getNotificaciones = async (req, res) => {
   }
 };
 
+const getCanvas = async (req, res)=>{
+  try {
+    const [result]= await pool.query('SELECT * FROM canvas')
+    res.status(200).json(result)
+  } catch (error) {
+    console.error('Error al obtener las prendas:', err);
+    res.status(500).json({ message: 'Error al obtener las prendas' });
+  }
+}
+
+const getCanvasID = async (req, res)=>{
+  const { id } = req.params;
+  try {
+    const [result]= await pool.query('SELECT * FROM canvas WHERE id = ?',[id])
+    res.status(200).json(result)
+  } catch (error) {
+    console.error('Error al obtener las prendas:', err);
+    res.status(500).json({ message: 'Error al obtener las prendas' });
+  }
+}
+
+const getPaquetes = async (req, res) => {
+  const querypack = `
+    SELECT 
+      id,
+      nombre,
+      descripcion,
+      precio,
+      icono,
+      color
+    FROM paquetes
+  `;
+
+  const querymodul = `
+    SELECT 
+      v.id,
+      v.nombre,
+      v.icono,
+      v.descripcion
+    FROM paquete_vistas pv
+    LEFT JOIN vistas v ON v.id = pv.vistas
+    WHERE pv.paquetes = ?
+  `;
+
+  try {
+    // Obtener paquetes
+    const [paquetes] = await pool.query(querypack);
+
+    // Obtener módulos de cada paquete
+    const paquetesConModulos = await Promise.all(
+      paquetes.map(async (paquete) => {
+        const [modulos] = await pool.query(querymodul, [paquete.id]);
+
+        return {
+          ...paquete,
+          modulos
+        };
+      })
+    );
+
+    res.status(200).json(paquetesConModulos);
+
+  } catch (error) {
+    console.error('Error al obtener los paquetes:', error);
+
+    res.status(500).json({
+      message: 'Error al obtener los paquetes'
+    });
+  }
+};
+
 module.exports={
     getColor,getTalla,getPrenda,getModelo,getPrendaId,getMaterial,getRutas,getRol,getPersonal,
     getTaller,getDetallesProduccion,getPrendasProduccion,getDetallePrenda,getInformePrenda,getMe,
     getInforPrenda,getDetallesInforme,getPrendaModelo,getClientes,getPedidos,getPedidosId,getPrendaSobreventa,
-    getAsistencia,getAsistenciaId, getAsistenciaDash,getConfiguraciones,getNotificaciones
+    getAsistencia,getAsistenciaId, getAsistenciaDash,getConfiguraciones,getNotificaciones,getCanvas,getCanvasID,
+    getPaquetes
 }
