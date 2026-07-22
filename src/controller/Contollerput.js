@@ -260,7 +260,7 @@ const putCampo = async (req, res) => {
   const { id } = req.params;
   const { campo, valor } = req.body;
 
-  const camposPermitidos = ["nombres", "correo", "telefono", "dni"];
+  const camposPermitidos = ["nombres", "correo", "telefono", "dni", "presupuesto"];
 
   if (!camposPermitidos.includes(campo)) {
     return res.status(400).json({ error: "Campo no permitido" });
@@ -350,6 +350,86 @@ const putCanvas = async (req, res) => {
   }
 }
 
+const putAdministracion = async (req, res) => {
+  const {id,userId}=req.params;
+  const { cantidad, descripcion, frecuenciaPago } = req.body;
+
+  try {
+    // Insertar el rol y obtener el ID generado
+    await pool.query('UPDATE administracion SET cantidad = ?, descripcion=?, frecuenciaPago=? WHERE id = ? AND userId = ? ', [cantidad, descripcion, frecuenciaPago,id,userId]);
+
+    res.status(201).json({ message: 'Datos Actualizados correctamente' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al guardar los datos', details: error.message });
+  }
+}
+
+const putAsignacion = async (req,res) =>{
+  const {userId,id} = req.params;
+  const horaAsignacion = new Date();
+  const personal = userId
+  try {
+    await pool.query('UPDATE actividades SET personal = ?, horaAsignacion = ? WHERE id = ?',[personal,horaAsignacion,id])
+    res.status(201).json({ message: 'Asignacion correctamente' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al guardar los datos', details: error.message });
+  }
+}
+
+const putTareaEstado = async (req, res) => {
+  const { idActividad, id } = req.params;
+  const { estado } = req.body;
+
+  try {
+    await pool.query(
+      'UPDATE tareas SET estado = ? WHERE idActividad = ? AND id = ?',
+      [estado, idActividad, id]
+    );
+
+    res.status(200).json({ message: 'Cambio de estado correctamente' });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Error al guardar los datos',
+      details: error.message
+    });
+  }
+};
+
+const PutEstadoCambio = async(req,res)=>{
+  const {id}= req.params;
+  const estado = 'ACTIVO'
+  try {
+    await pool.query('UPDATE participante SET estado = ? WHERE id= ?',[estado,id])
+    res.status(200).json({ message: 'Cambio de estado correctamente' });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Error al guardar los datos',
+      details: error.message
+    });
+  }
+}
+
+const putCampoProyect = async (req, res) => {
+  const { id } = req.params;
+  const { campo, valor } = req.body;
+
+  const camposPermitidos = ["nombre", "descripcion"];
+
+  if (!camposPermitidos.includes(campo)) {
+    return res.status(400).json({ error: "Campo no permitido" });
+  }
+
+  const query = `UPDATE proyectos SET ${campo} = ? WHERE id = ?`;
+
+  try {
+    await pool.query(query, [valor, id]);
+    res.status(200).json({ message: "Datos guardados correctamente" });
+  } catch (error) {
+    console.error("Error al guardar datos:", error);
+    res.status(500).json({ error: "Error al guardar los datos" });
+  }
+};
+
 module.exports={
     putAreasEstados,
     putInformes,
@@ -365,5 +445,10 @@ module.exports={
     updateConfiguracion,
     updatePassword,
     FotoPerfil,FotoTaller,putLeido,
-    putCanvas
+    putCanvas,
+    putAdministracion,
+    putAsignacion, 
+    putTareaEstado,
+    putCampoProyect,
+    PutEstadoCambio
 }

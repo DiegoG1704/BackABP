@@ -1,6 +1,25 @@
 const { Router } = require("express");
 const { verificarToken } = require("../controller/UserController.js");
-const { getColor, getTalla, getPrenda, getModelo, getPrendaId, getMaterial, getRutas, getRol, getPersonal, getTaller, getDetallesProduccion, getPrendasProduccion, getDetallePrenda, getInformePrenda, getMe, getInforPrenda, getDetallesInforme, getPrendaModelo, getClientes, getPedidos, getPedidosId, getPrendaSobreventa, getAsistencia, getAsistenciaId, getAsistenciaDash, getConfiguraciones, getNotificaciones, getCanvas, getCanvasID, getPaquetes} = require("../controller/ControllerGet.js");
+const { getColor, getTalla, getPrenda, getModelo, getPrendaId, getMaterial, getRutas, getRol, getPersonal
+    , getTaller, getDetallesProduccion, getPrendasProduccion, getDetallePrenda, getInformePrenda, getMe, getInforPrenda, 
+    getDetallesInforme, getPrendaModelo, getClientes, getPedidos, getPedidosId, getPrendaSobreventa, getAsistencia, 
+    getAsistenciaId, getAsistenciaDash, getConfiguraciones, getNotificaciones, getCanvas, getCanvasID, getPaquetes, 
+    getAdministracion, getDetalesPrestamo,
+    getPrestamoPagos,
+    getGestion,
+    procesarVencimientos,
+    getActividades,
+    getEvidenciaDatos,getProyectos,
+    getColumnas,
+    getProyectosCodigo,
+    getActividadesProyect,
+    getEventos,
+    getEventosCode,
+    getCamposCode,
+    getParticipantes,
+    getEventoCodigo,
+    getCamposPVCode,
+    verificarParticipante} = require("../controller/ControllerGet.js");
 
 const routerGet = Router();
 
@@ -61,6 +80,40 @@ routerGet.get('/getConfiguraciones/:userId',verificarToken,getConfiguraciones)
 routerGet.get('/getNotificaciones/:userId',verificarToken,getNotificaciones)
 
 routerGet.get('/getPaquetes',verificarToken,getPaquetes)
+
+routerGet.get('/getAdministracion/:id',verificarToken,getAdministracion)
+
+routerGet.get('/getDetallePrestamo/:id',verificarToken,getDetalesPrestamo)
+
+routerGet.get('/procesarVencimientos/:userId',verificarToken,procesarVencimientos)
+
+routerGet.get('/getGestion',verificarToken,getGestion)
+
+routerGet.get('/getActividades',verificarToken,getActividades)
+
+routerGet.get('/getEvidencia/:actividadId',verificarToken,getEvidenciaDatos)
+
+routerGet.get('/getColumnas',verificarToken,getColumnas)
+
+routerGet.get('/getProyectos',verificarToken,getProyectos)
+
+routerGet.get('/getProyectosCodigo/:codigo',verificarToken,getProyectosCodigo)
+
+routerGet.get('/getActividadCodigo/:codigo',verificarToken,getActividadesProyect)
+
+routerGet.get('/getEventoCode/:codigo',getEventosCode)
+
+routerGet.get('/getEventos',verificarToken,getEventos)
+
+routerGet.get('/getCampos/:evento_id',getCamposCode)
+
+routerGet.get('/getCamposPrivado/:evento_id',getCamposPVCode)
+
+routerGet.get('/getParticipantes/:codigo',verificarToken,getParticipantes)
+
+routerGet.get('/getEventoCodigo/:codigo',verificarToken,getEventoCodigo)
+
+routerGet.get("/getVerificar/:codigo", verificarParticipante);
 
 routerGet.get('/me/:id',getMe)
 module.exports = routerGet;

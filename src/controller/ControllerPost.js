@@ -6,6 +6,7 @@ const xlsx = require("xlsx");
 const path = require('path');
 const fs = require("fs");
 const moment = require('moment');
+const QRCode = require("qrcode");
 
 const postPrenda = async (req, res) => {
   const { nombre, idMaterial, precioU, precioM, productos } = req.body;
@@ -613,7 +614,1091 @@ const postRegistro = async (req, res) => {
   }
 };
 
+const postMovimientos = async (req, res) => {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const { tipoAdmin } = req.params;
+
+    const {
+      cantidad,
+      descripcion,
+      tipoPago,
+      frecuenciaPago,
+      cliente,
+      prestamos,
+      userId
+    } = req.body;
+
+    // ==========================
+    // ADMINISTRACION
+    // ==========================
+    const fechaVenc = new Date();
+
+    if (tipoPago === 1 && frecuenciaPago) {
+      switch (frecuenciaPago) {
+        case 1: // semanal
+          fechaVenc.setDate(fechaVenc.getDate() + 7);
+          break;
+
+        case 2: // mensual
+          fechaVenc.setMonth(fechaVenc.getMonth() + 1);
+          break;
+
+        case 3: // anual
+          fechaVenc.setFullYear(fechaVenc.getFullYear() + 1);
+          break;
+      }
+    }
+    const [resultUserDat] = await pool.query(
+      'SELECT * FROM usuario WHERE idDatos = ?',
+      [userId]
+    );
+
+   const [adminResult] = await connection.query(
+    `INSERT INTO Administracion
+    (cantidad, descripcion, tipoPago, frecuenciaPago, tipoAdmin, fechaVenc,userId)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      cantidad,
+      descripcion,
+      tipoPago,
+      frecuenciaPago,
+      tipoAdmin,
+      tipoPago === 1 ? fechaVenc : null,
+      resultUserDat[0].id
+    ]
+  );
+
+    const idAdministracion = adminResult.insertId;
+
+    const [resultUser] = await pool.query(
+      'SELECT presupuesto FROM datos WHERE id = ?',
+      [userId]
+    );
+
+    const pres = Number(resultUser[0].presupuesto || 0);
+    const monto = Number(cantidad);
+
+    if (Number(tipoAdmin) === 1) {
+      await pool.query(
+        'UPDATE datos SET presupuesto = COALESCE(presupuesto, 0) + ? WHERE id = ?',
+        [monto, userId]
+      );
+    } else if (Number(tipoAdmin) === 2 || Number(tipoAdmin) === 3) {
+      if (pres < monto) {
+        return res.status(400).json({
+          message: 'No hay suficiente presupuesto',
+        });
+      }
+
+      await pool.query(
+        'UPDATE datos SET presupuesto = presupuesto - ? WHERE id = ?',
+        [monto, userId]
+      );
+    }
+
+    // ==========================
+    // CLIENTE
+    // ==========================
+    let idPrestamo = null;
+    if (Number(tipoAdmin) === 3) {
+       if (!cliente?.length) {
+          throw new Error("Debe enviar un cliente");
+        }
+
+        if (!prestamos?.length) {
+          throw new Error("Debe enviar un préstamo");
+        }
+    const cli = cliente[0];
+
+    const [clienteResult] = await connection.query(
+      `INSERT INTO cliente
+      (documento, nombre, apellido, telefono, tipo)
+      VALUES (?,?,?,?,2)`,
+      [
+        cli.documento,
+        cli.nombre,
+        cli.apellido,
+        cli.telefono
+      ]
+    );
+
+    const idCliente = clienteResult.insertId;
+
+    // ==========================
+    // PRESTAMO
+    // ==========================
+    const prest = prestamos[0];
+
+    const [prestamoResult] = await connection.query(
+      `INSERT INTO prestamo(
+        tipoCobro,
+        cantidadCuotas,
+        recurrencia,
+        fechaPago,
+        tieneInteres,
+        tipoInteres,
+        valorInteres,
+        montoInteres,
+        montoTotal,
+        montoPagado,
+        saldoPendiente,
+        estado,
+        idAdministracion,
+        idCliente
+      )
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [
+        prest.tipoCobro,
+        prest.cantidadCuotas,
+        prest.recurrencia,
+        prest.fechaPago,
+        prest.tieneInteres,
+        prest.tipoInteres,
+        prest.valorInteres,
+        prest.montoInteres,
+        prest.montoTotal,
+        0,
+        prest.montoTotal,
+        'PENDIENTE',
+        idAdministracion,
+        idCliente
+      ]
+    );
+
+    const idPrestamo = prestamoResult.insertId;
+
+    // ==========================
+    // GENERAR CUOTAS
+    // ==========================
+    const cuotas = [];
+
+    let fechaBase;
+
+    if (prest.fechaPago) {
+      fechaBase = new Date(prest.fechaPago);
+    } else {
+      fechaBase = new Date();
+      fechaBase.setMonth(fechaBase.getMonth() + 1);
+    }
+
+    const montoCuota =
+      Number(prest.montoTotal) /
+      Number(prest.cantidadCuotas);
+
+    for (let i = 1; i <= prest.cantidadCuotas; i++) {
+      const fechaVencimiento = new Date(fechaBase);
+
+      switch (prest.recurrencia) {
+        case "SEMANAL":
+          fechaVencimiento.setDate(
+            fechaVencimiento.getDate() + (7 * (i - 1))
+          );
+          break;
+
+        case "MENSUAL":
+          fechaVencimiento.setMonth(
+            fechaVencimiento.getMonth() + (i - 1)
+          );
+          break;
+
+        case "ANUAL":
+          fechaVencimiento.setFullYear(
+            fechaVencimiento.getFullYear() + (i - 1)
+          );
+          break;
+      }
+
+      cuotas.push([
+        idPrestamo,
+        i,
+        montoCuota.toFixed(2),
+        fechaVencimiento,
+        null,
+        0,
+        "PENDIENTE"
+      ]);
+    }
+
+    await connection.query(
+      `INSERT INTO prestamo_cuota
+      (
+        idPrestamo,
+        numeroCuota,
+        montoCuota,
+        fechaVencimiento,
+        fechaPago,
+        montoPagado,
+        estado
+      )
+      VALUES ?`,
+      [cuotas]
+    );
+
+  }
+
+    await connection.commit();
+
+    res.status(201).json({
+      success: true,
+      idPrestamo,
+      message: "Registro echo correctamente"
+    });
+
+  } catch (error) {
+    await connection.rollback();
+
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  } finally {
+    connection.release();
+  }
+};
+
+const postPagosPrestamo = async (req, res) => {
+  const { idCuota, idPrestamo, monto, userId } = req.body;
+
+  let connection;
+
+  try {
+    // Validaciones básicas
+    if (!idCuota || !idPrestamo || !monto) {
+      return res.status(400).json({
+        ok: false,
+        message: "Faltan datos requeridos",
+      });
+    }
+
+    const montoPago = Number(monto);
+
+    if (isNaN(montoPago) || montoPago <= 0) {
+      return res.status(400).json({
+        ok: false,
+        message: "Monto inválido",
+      });
+    }
+
+    connection = await pool.getConnection();
+
+    await connection.beginTransaction();
+
+    // Obtener información de la cuota
+    const [cuotas] = await connection.query(
+      `SELECT *
+       FROM prestamo_cuota
+       WHERE idCuota = ? AND idPrestamo = ?`,
+      [idCuota, idPrestamo]
+    );
+
+    if (cuotas.length === 0) {
+      await connection.rollback();
+
+      return res.status(404).json({
+        ok: false,
+        message: "La cuota no existe",
+      });
+    }
+
+    const cuota = cuotas[0];
+
+    // Obtener información del préstamo
+    const [prestamos] = await connection.query(
+      `SELECT *
+       FROM prestamo
+       WHERE id = ?`,
+      [idPrestamo]
+    );
+
+    if (prestamos.length === 0) {
+      await connection.rollback();
+
+      return res.status(404).json({
+        ok: false,
+        message: "El préstamo no existe",
+      });
+    }
+
+    const prestamo = prestamos[0];
+
+    // Validar que la cuota no esté pagada
+    if (cuota.estado === "PAGADA") {
+      await connection.rollback();
+
+      return res.status(400).json({
+        ok: false,
+        message: "La cuota ya fue pagada",
+      });
+    }
+
+    // Validar que no exceda el monto pendiente de la cuota
+    const montoPendienteCuota =
+      Number(cuota.montoCuota) - Number(cuota.montoPagado);
+
+    if (montoPago > montoPendienteCuota) {
+      await connection.rollback();
+
+      return res.status(400).json({
+        ok: false,
+        message: `El monto excede el saldo pendiente de la cuota (${montoPendienteCuota})`,
+      });
+    }
+
+    // Registrar pago
+    await connection.query(
+      `INSERT INTO prestamo_pago
+      (idPrestamo, idCuota, monto)
+      VALUES (?, ?, ?)`,
+      [idPrestamo, idCuota, montoPago]
+    );
+
+    // Actualizar cuota
+    await connection.query(
+      `UPDATE prestamo_cuota
+       SET montoPagado = montoPagado + ?
+       WHERE idCuota = ? AND idPrestamo = ?`,
+      [montoPago, idCuota, idPrestamo]
+    );
+
+    // Actualizar préstamo
+    await connection.query(
+      `UPDATE prestamo
+       SET
+          montoPagado = montoPagado + ?,
+          saldoPendiente = saldoPendiente - ?,
+          fechaActualizacion = CURDATE(),
+          estado = 'PAGANDO'
+       WHERE id = ?`,
+      [montoPago, montoPago, idPrestamo]
+    );
+
+    // Calcular nuevos montos
+    const nuevoMontoCuota =
+      Number(cuota.montoPagado) + montoPago;
+
+    const nuevoMontoPrestamo =
+      Number(prestamo.montoPagado) + montoPago;
+
+    // Marcar cuota como pagada
+    if (nuevoMontoCuota >= Number(cuota.montoCuota)) {
+      await connection.query(
+        `UPDATE prestamo_cuota
+         SET
+            estado = 'PAGADA',
+            fechaPago = NOW()
+         WHERE idCuota = ? AND idPrestamo = ?`,
+        [idCuota, idPrestamo]
+      );
+    }
+
+    // Marcar préstamo como pagado
+    if (nuevoMontoPrestamo >= Number(prestamo.montoTotal)) {
+      await connection.query(
+        `UPDATE prestamo
+         SET estado = 'PAGADO', fechaPago = CURDATE()
+         WHERE id = ?`,
+        [idPrestamo]
+      );
+      if (prestamo.montoInteres > 0) {
+        await connection.query(
+          `INSERT INTO Administracion
+          (cantidad, descripcion, tipoAdmin)
+          VALUES (?,?,?)`,
+          [
+            prestamo.montoInteres,
+            "Interes de Prestamo",
+            1
+          ]
+        );
+      }
+
+      
+      await pool.query(
+        'UPDATE datos SET presupuesto = COALESCE(presupuesto, 0) + ? WHERE id = ?',
+        [prestamo.montoTotal, userId]
+      );
+    }
+
+    await connection.commit();
+
+    return res.status(200).json({
+      ok: true,
+      message: "Pago registrado correctamente",
+    });
+
+  } catch (error) {
+    if (connection) {
+      await connection.rollback();
+    }
+
+    console.error("Error al registrar pago:", error);
+
+    return res.status(500).json({
+      ok: false,
+      message: "Error interno del servidor",
+      error: error.message,
+    });
+
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+};
+
+const PostActividad = async (req,res)=>{
+  const {userId} = req.params;
+  const {titulo,descripcion,area,prioridad,personal, Lista} = req.body;
+  const creadorAct = userId;
+  try {
+    const [result]= await pool.query(`
+      INSERT INTO actividades (titulo,descripcion,area,prioridad,personal,creadorAct) VALUES(?,?,?,?,?,?)`,
+    [titulo,descripcion,area,prioridad,personal,creadorAct])
+    const idActividad = result.insertId;
+
+    for (const List of Lista) {
+        await pool.query('INSERT INTO tareas (descripcion,idActividad) VALUES (?,?)',[List.descripcion,idActividad])
+      }
+    return res.status(200).json({
+      ok: true,
+      message: "Pago registrado correctamente",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      message: "Error interno del servidor",
+      error: error.message,
+    });
+  }
+}
+
+const PostEvidencia = async (req, res) => {
+  try {
+    const {id} = req.params;
+    const {titulo,descripcion} = req.body;
+    const imagen = req.file ? req.file.filename : null;
+
+    const query = "INSERT INTO evidencia(titulo,descripcion,imagen,actividadId) VALUES (?,?,?,?)";
+    await pool.query(query, [titulo,descripcion,imagen,id]);
+    return res.status(200).json({
+      ok: true,
+      message: "Pago registrado correctamente",
+    });
+  } catch (error) {
+    console.error("Errorl:", error);
+    return res.status(500).json({
+      ok: false,
+      message: "Error interno del servidor",
+      error: error.message,
+    });
+  }
+};
+
+const PostTarea = async(req,res) =>{
+  const {idActividad} = req.params;
+  const {descripcion} = req.body;
+  const query = 'INSERT INTO tareas (descripcion, idActividad) VALUES (?,?)'
+  try {
+    await pool.query(query,[descripcion,idActividad])
+    return res.status(200).json({
+      ok: true,
+      message: "Tarea registrada correctamente",
+    });
+  } catch (error) {
+    console.error("Error:", error);
+    return res.status(500).json({
+      ok: false,
+      message: "Error interno del servidor",
+      error: error.message,
+    });
+  }
+}
+
+const generarCodigo = (longitud = 10) => {
+  const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let codigo = '';
+
+  for (let i = 0; i < longitud; i++) {
+    codigo += caracteres.charAt(
+      Math.floor(Math.random() * caracteres.length)
+    );
+  }
+
+  return codigo;
+};
+
+const PostProyecto = async (req, res) => {
+  const { nombre, descripcion, responsable } = req.body;
+
+  const codigo = generarCodigo(10);
+
+  const query = `
+    INSERT INTO proyectos (nombre, descripcion, responsable, codigo)
+    VALUES (?, ?, ?, ?)
+  `;
+
+  try {
+    await pool.query(query, [
+      nombre,
+      descripcion,
+      responsable,
+      codigo,
+    ]);
+
+    return res.status(200).json({
+      ok: true,
+      message: "Proyecto registrado correctamente",
+      codigo,
+    });
+  } catch (error) {
+    console.error("Error:", error);
+    return res.status(500).json({
+      ok: false,
+      message: "Error interno del servidor",
+      error: error.message,
+    });
+  }
+};
+
+const PostEvento = async (req, res) => {
+  const { nombre, descripcion, fechaEvento, tipo } = req.body;
+
+  const codigo = generarCodigo(10);
+
+  const query = `
+    INSERT INTO evento (nombre, descripcion, fechaEvento, tipo, codigo)
+    VALUES (?, ?, ?, ?, ?)
+  `;
+
+  try {
+    await pool.query(query, [
+      nombre,
+      descripcion,
+      fechaEvento,
+      tipo,
+      codigo,
+    ]);
+
+    return res.status(200).json({
+      ok: true,
+      message: "Proyecto registrado correctamente",
+      codigo,
+    });
+  } catch (error) {
+    console.error("Error:", error);
+    return res.status(500).json({
+      ok: false,
+      message: "Error interno del servidor",
+      error: error.message,
+    });
+  }
+};
+
+const PostProyectoPersonal = async (req,res) =>{
+  const { idProyecto, idPersonal } = req.params;
+  const { estado, solicitud } = req.body;
+  const query = 'INSERT INTO proyectos_empleados(idProyecto, idPersonal, estado, solicitud) VALUES (?,?,?,?)'
+  try {
+    await pool.query(query,[idProyecto,idPersonal, estado, solicitud])
+    return res.status(200).json({
+      ok: true,
+      message: "Proyecto registrado correctamente"
+    });
+  } catch (error) {
+    console.error("Error:", error);
+    return res.status(500).json({
+      ok: false,
+      message: "Error interno del servidor",
+      error: error.message,
+    });
+  }
+}
+
+const crearCampo = async (req, res) => {
+
+    const { eventoId } = req.params;
+
+    const {
+        label,
+        nombreInterno,
+        tipo,
+        required,
+        placeholder,
+        orden,
+        opciones
+    } = req.body;
+
+    const conn = await pool.getConnection();
+
+    try {
+
+        await conn.beginTransaction();
+
+        const [campo] = await conn.query(`
+            INSERT INTO campo_formulario
+            (
+                evento_id,
+                nombreInterno,
+                label,
+                tipo,
+                required,
+                placeholder,
+                orden
+            )
+            VALUES (?,?,?,?,?,?,?)
+        `,[
+            eventoId,
+            nombreInterno,
+            label,
+            tipo,
+            required,
+            placeholder,
+            orden
+        ]);
+
+        const campoId = campo.insertId;
+
+        if(
+            ["select","radio","checkbox"].includes(tipo)
+            && opciones?.length
+        ){
+
+            for(const opcion of opciones){
+
+                await conn.query(`
+                    INSERT INTO campo_opcion
+                    (
+                        campo_id,
+                        texto,
+                        valor,
+                        orden
+                    )
+                    VALUES(?,?,?,?)
+                `,[
+                    campoId,
+                    opcion.texto,
+                    opcion.valor,
+                    opcion.orden
+                ]);
+
+            }
+
+        }
+
+        await conn.commit();
+
+        res.json({
+            ok:true,
+            campoId
+        });
+
+    } catch (error) {
+
+        await conn.rollback();
+        console.log('error', error);
+        
+
+        res.status(500).json(error);
+
+    } finally {
+
+        conn.release();
+
+    }
+
+}
+
+const registrarParticipante = async (req, res) => {
+
+    const {
+        estado,
+        codigoEvento,
+        codigoRegistro,
+        respuestas
+    } = req.body;
+
+
+    const connection = await pool.getConnection();
+
+
+    try {
+
+        await connection.beginTransaction();
+
+
+        // Buscar evento
+        const [evento] = await connection.query(
+            `
+            SELECT 
+                id,
+                tipo
+            FROM evento
+            WHERE codigo = ?
+            `,
+            [
+                codigoEvento
+            ]
+        );
+
+
+        if(evento.length === 0){
+
+            await connection.rollback();
+
+            return res.status(404).json({
+                success:false,
+                message:"Evento no encontrado"
+            });
+
+        }
+
+
+
+        const eventoId = evento[0].id;
+
+        const tipoRegistro = evento[0].tipo;
+
+
+
+        /*
+            1 = Público
+            2 = Privado
+        */
+
+
+        let codigoId = null;
+
+
+
+        // Validar código privado
+
+        if(tipoRegistro === "2"){
+
+
+            if(!codigoRegistro){
+
+                await connection.rollback();
+
+                return res.status(400).json({
+                    success:false,
+                    message:"Debe ingresar código de registro"
+                });
+
+            }
+
+
+
+            const [codigo] = await connection.query(
+                `
+                SELECT id
+                FROM codigo_registro
+                WHERE evento_id = ?
+                AND codigo = ?
+                AND estado = 'DISPONIBLE'
+                `,
+                [
+                    eventoId,
+                    codigoRegistro
+                ]
+            );
+
+
+
+            if(codigo.length === 0){
+
+
+                await connection.rollback();
+
+
+                return res.status(400).json({
+                    success:false,
+                    message:"Código inválido o ya utilizado"
+                });
+
+
+            }
+
+
+            codigoId = codigo[0].id;
+
+
+        }
+
+
+
+
+        const codigoPer = generarCodigo(10);
+        // Crear participante
+
+        const [participante] = await connection.query(
+            `
+            INSERT INTO participante
+            (
+                evento_id,
+                fechaRegistro,
+                estado,
+                codigo
+            )
+            VALUES
+            (
+                ?,
+                NOW(),
+                ?,
+                ?
+            )
+            `,
+            [
+                eventoId,
+                estado,
+                codigoPer
+            ]
+        );
+
+
+
+        const participanteId = participante.insertId;
+
+         
+        // Guardar respuestas
+
+        if(respuestas && respuestas.length > 0){
+
+
+            for(const respuesta of respuestas){
+
+
+                await connection.query(
+                    `
+                    INSERT INTO respuesta_campo
+                    (
+                        participante_id,
+                        campo_id,
+                        valor
+                    )
+                    VALUES
+                    (
+                        ?,
+                        ?,
+                        ?
+                    )
+                    `,
+                    [
+                        participanteId,
+                        respuesta.campoId,
+                        respuesta.valor
+                    ]
+                );
+
+
+            }
+
+
+        }
+
+
+
+
+        // Marcar código como usado
+
+        if(tipoRegistro === "2"){
+
+
+            await connection.query(
+                `
+                UPDATE codigo_registro
+                SET
+                    estado='USADO',
+                    participante_id=?
+                WHERE id=?
+                `,
+                [
+                    participanteId,
+                    codigoId
+                ]
+            );
+
+
+        }
+
+
+
+
+
+        await connection.commit();
+
+
+        const contenidoQR = `http://localhost:3000/verificar?codigo=${codigoPer}`;
+
+        const qr = await QRCode.toDataURL(contenidoQR);
+
+        return res.status(201).json({
+
+            success:true,
+
+            message:"Registro exitoso",
+
+            participanteId,
+
+            qr
+
+        });
+
+
+
+    } catch(error){
+
+
+        await connection.rollback();
+
+
+        console.error(error);
+
+
+
+        return res.status(500).json({
+
+            success:false,
+
+            message:"Error al registrar participante"
+
+        });
+
+
+
+    } finally{
+
+
+        connection.release();
+
+
+    }
+
+};
+
+const generarCodigosEvento = async (req, res) => {
+
+    try {
+      const {evento_id} = req.params;
+        const {
+            cantidad
+        } = req.body;
+
+
+        if (!evento_id || !cantidad) {
+
+            return res.status(400).json({
+                message:"Evento y cantidad son obligatorios"
+            });
+
+        }
+
+
+        const codigos = [];
+
+
+        for(let i = 0; i < cantidad; i++){
+
+            let codigo;
+
+            let existe = true;
+
+
+            // Evitar códigos repetidos
+
+            while(existe){
+
+                codigo = generarCodigo(10);
+
+
+                const [resultado] = await pool.query(
+                    `
+                    SELECT id 
+                    FROM codigo_registro
+                    WHERE codigo = ?
+                    `,
+                    [codigo]
+                );
+
+
+                existe = resultado.length > 0;
+
+            }
+
+
+            codigos.push(codigo);
+
+
+        }
+
+
+
+        // Insertar todos los códigos
+
+        const valores = codigos.map(codigo => [
+
+            evento_id,
+            codigo,
+            "DISPONIBLE",
+            null
+
+        ]);
+
+
+
+        await pool.query(
+
+            `
+            INSERT INTO codigo_registro
+            (
+                evento_id,
+                codigo,
+                estado,
+                participante_id
+            )
+            VALUES ?
+            `,
+
+            [valores]
+
+        );
+
+
+        return res.status(201).json({
+
+            message:"Códigos generados correctamente",
+
+            cantidad:codigos.length,
+
+            codigos,
+
+        });
+
+
+
+    } catch(error){
+
+        console.log(error);
+
+
+        return res.status(500).json({
+
+            message:"Error generando códigos",
+
+            error:error.message
+
+        });
+
+    }
+
+};
+
 module.exports={
   PostVenta,postPrenda,postRol,postPersonal,postTaller, postProduccion,PostInformePrenda,PostColor,
-  PostMaterial, PostCliente, PostObservacion,PostAsistencia,PostNotificacines,postCanvas,postRegistro,postModulos
+  PostMaterial, PostCliente, PostObservacion,PostAsistencia,PostNotificacines,postCanvas,postRegistro,postModulos,
+  postMovimientos, postPagosPrestamo,PostActividad,PostEvidencia,PostTarea, PostProyecto, PostProyectoPersonal,
+  PostEvento,crearCampo, registrarParticipante, generarCodigosEvento
 }

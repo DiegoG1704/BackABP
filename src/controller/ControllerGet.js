@@ -587,6 +587,127 @@ const getCanvasID = async (req, res)=>{
   }
 }
 
+const getAdministracion = async (req, res)=>{
+  const { id } = req.params;
+  try {
+    const [result]= await pool.query(
+      `
+      SELECT 
+        *,DATE_FORMAT(fecha,'%d-%m-%Y') AS fecha  
+      FROM 
+        administracion 
+      WHERE 
+        tipoAdmin = ?
+      ORDER BY id DESC;
+      `,[id])
+      const [resultFrecu]= await pool.query(
+      `
+      SELECT 
+        *,DATE_FORMAT(fecha,'%d-%m-%Y') AS fecha  
+      FROM 
+        administracion 
+      WHERE 
+        tipoAdmin = ? AND tipoPago = 1
+      ORDER BY id DESC;
+      `,[id])
+    res.status(200).json({result,resultFrecu})
+  } catch (error) {
+    console.error('Error al obtener las prendas:', err);
+    res.status(500).json({ message: 'Error al obtener las prendas' });
+  }
+}
+
+const getGestion = async (req, res) => {
+  const queryGraficas = `
+    SELECT 
+      *,DATE_FORMAT(fecha,'%d-%m-%Y') AS fecha 
+    FROM 
+      administracion 
+    WHERE 
+      DATE(fecha) = CURDATE()
+    ORDER BY id DESC;
+  `
+  const queryFrecuentes = `
+    SELECT
+    COALESCE(
+        SUM(
+            CASE
+                WHEN tipoAdmin = 1 THEN
+                    cantidad * CASE
+                        WHEN FrecuenciaPago = 1 THEN 4
+                        WHEN FrecuenciaPago = 2 THEN 1
+                        WHEN FrecuenciaPago = 3 THEN (1/12)
+                        ELSE 1
+                    END
+                ELSE 0
+            END
+        ),
+        0
+    ) AS ingresosMensuales,
+
+    COALESCE(
+        SUM(
+            CASE
+                WHEN tipoAdmin = 2 THEN
+                    cantidad * CASE
+                        WHEN FrecuenciaPago = 1 THEN 4
+                        WHEN FrecuenciaPago = 2 THEN 1
+                        WHEN FrecuenciaPago = 3 THEN (1/12)
+                        ELSE 1
+                    END
+                ELSE 0
+            END
+        ),
+        0
+    ) AS egresosMensuales
+
+FROM administracion
+WHERE userId = 6
+  AND tipoPago = 1;
+  `
+
+  const queryGraficasMensuales = `
+    SELECT 
+      DATE_FORMAT(fecha, '%m-%Y') AS mes,
+      SUM(CASE WHEN tipoAdmin = 1 THEN cantidad ELSE 0 END) AS ingresos,
+      SUM(CASE WHEN tipoAdmin = 2 THEN cantidad ELSE 0 END) AS egresos
+    FROM administracion
+    WHERE tipoAdmin IN (1,2)
+    GROUP BY YEAR(fecha), MONTH(fecha)
+    ORDER BY YEAR(fecha), MONTH(fecha);
+  `
+
+  const query = `
+    SELECT
+      CASE
+        WHEN tipoAdmin = 1 THEN 'Ingresos'
+        WHEN tipoAdmin = 2 THEN 'Egresos'
+        WHEN tipoAdmin = 3 THEN 'Prestamos'
+      END AS tipo,
+      SUM(cantidad) AS total
+    FROM administracion
+    GROUP BY tipoAdmin
+  `;
+
+  try {
+    const [result] = await pool.query(query);
+    const [resultGraf] = await pool.query(queryGraficas);
+    const [resultMens] = await pool.query(queryGraficasMensuales);
+    const [resultFrec] = await pool.query(queryFrecuentes);
+    const mensualFrec = {
+      ingresosMensuales: Number(resultFrec[0].ingresosMensuales),
+      egresosMensuales: Number(resultFrec[0].egresosMensuales),
+    };
+    res.status(200).json({result,resultGraf,resultMens,mensualFrec});
+
+  } catch (error) {
+    console.error('Error al obtener la gestión:', error);
+    res.status(500).json({
+      message: 'Error al obtener la gestión'
+    });
+  }
+};
+
 const getPaquetes = async (req, res) => {
   const querypack = `
     SELECT 
@@ -637,10 +758,718 @@ const getPaquetes = async (req, res) => {
   }
 };
 
+const getDetalesPrestamo = async (req, res) => {
+  const { id } = req.params;
+
+  const queryDetallePres = `
+    SELECT
+      p.*,
+      DATE_FORMAT(p.fechaRegistro,'%d-%m-%Y') AS fechaRegistro
+    FROM prestamo p
+    WHERE p.idAdministracion = ?
+  `;
+
+  const queryCliente = `
+    SELECT * FROM cliente WHERE id = ?
+  `
+
+  const queryPagoCuotas =`
+    SELECT *,DATE_FORMAT(fechaPago,'%d-%m-%Y') AS fechaPago  FROM prestamo_pago WHERE idPrestamo = ? 
+  `
+
+  const queryDetalleCuota = `
+    SELECT
+      pc.*,
+      DATE_FORMAT(pc.fechaVencimiento,'%d-%m-%Y') AS fechaVencimiento,
+      DATE_FORMAT(pc.fechaRegistro,'%d-%m-%Y') AS fechaRegistro
+    FROM prestamo_cuota pc
+    WHERE pc.idPrestamo = ?
+    ORDER BY pc.numeroCuota
+  `;
+
+  try {
+    const [prestamoRows] = await pool.query(queryDetallePres, [id]);
+
+    if (prestamoRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Préstamo no encontrado"
+      });
+    }
+
+    const prestamo = prestamoRows[0];
+    const [cliente] = await pool.query(
+      queryCliente,
+      [prestamo.idCliente]
+    );
+
+    const [cuotas] = await pool.query(
+      queryDetalleCuota,
+      [prestamo.id]
+    );
+
+    const [pagosCuotas] = await pool.query(queryPagoCuotas,[prestamo.id])
+
+    res.status(200).json({
+      success: true,
+      prestamo,
+      cuotas,cliente,pagosCuotas
+    });
+
+  } catch (err) {
+    console.error("Error al obtener el préstamo:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener el préstamo"
+    });
+  }
+};
+
+const procesarVencimientos = async (req,res) => {
+  const {userId}=req.params;
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [movimientos] = await connection.query(
+      `SELECT *
+      FROM administracion
+      WHERE userId = ?
+        AND tipoPago = 1
+        AND fechaVenc <= NOW()`,
+      [userId]
+    );
+
+    for (const mov of movimientos) {
+      const { id,descripcion, cantidad, tipoAdmin, FrecuenciaPago } = mov;
+
+      const [usuario] = await connection.query(
+      `SELECT *
+       FROM usuario
+       WHERE id = ?`,
+      [userId]
+    );
+
+    const user = usuario[0];
+
+      // Actualizar presupuesto
+      if (tipoAdmin === 1) {
+        await connection.query(
+          `UPDATE datos
+           SET presupuesto = presupuesto + ?
+           WHERE id = ?`,
+          [cantidad, user.idDatos]
+        );
+        
+      } else if (tipoAdmin === 2 || tipoAdmin === 3) {
+        await connection.query(
+          `UPDATE datos
+           SET presupuesto = presupuesto - ?
+           WHERE id = ?`,
+          [cantidad, user.idDatos]
+        );
+      }
+
+      let nuevaFecha = new Date(mov.fechaVenc);
+
+      while (nuevaFecha <= new Date()) {
+        switch (Number(FrecuenciaPago)) {
+          case 1:
+            nuevaFecha.setDate(nuevaFecha.getDate() + 7);
+            break;
+
+          case 2:
+            nuevaFecha.setMonth(nuevaFecha.getMonth() + 1);
+            break;
+
+          case 3:
+            nuevaFecha.setFullYear(nuevaFecha.getFullYear() + 1);
+            break;
+
+          default:
+            throw new Error(
+              `FrecuenciaPago inválida: ${FrecuenciaPago}`
+            );
+        }
+      }
+
+      await connection.query(
+        `UPDATE administracion
+        SET fechaVenc = ?
+        WHERE id = ?`,
+        [nuevaFecha, id]
+      );
+      await connection.query(
+        `INSERT INTO Administracion
+        (cantidad, descripcion, tipoAdmin,userId)
+        VALUES (?,?,?,?)`,
+        [
+          cantidad,
+          descripcion,
+          tipoAdmin,
+          userId
+        ]
+      );
+
+      console.log("Nueva fecha:", nuevaFecha);
+    }
+
+    await connection.commit();
+
+    res.status(200).json({
+      ok: true,
+      mensaje: 'Vencimientos procesados'
+    });
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+const getActividades = async(req,res) =>{
+  try {
+    const [result] = await pool.query(
+      `SELECT 
+          a.id,
+          a.titulo,
+          a.descripcion,
+          s.nombre AS area,
+          a.prioridad,
+          a.creadorAct,
+          p.nombres AS personal,
+          c.nombres AS creador,
+          DATE_FORMAT(a.fechaCreacion, '%d-%m-%Y') AS fechaCreacion,
+          TIME_FORMAT(a.horaAsignacion, '%H:%i:%s') AS horaAsignacion,
+          a.estado
+      FROM actividades a
+      LEFT JOIN datos p ON p.id = a.personal
+      LEFT JOIN datos c ON c.id = a.creadorAct
+      LEFT JOIN areas s ON s.id = a.area
+      ORDER BY YEAR(a.fechaCreacion), MONTH(a.fechaCreacion)`);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener Actividades"
+    });
+  }
+}
+
+const getEvidenciaDatos = async( req,res) =>{
+  const {actividadId} = req.params;
+  const query = 'SELECT * FROM evidencia WHERE actividadId = ?'
+  const queryTareas = 'SELECT * FROM tareas WHERE idActividad = ?'
+  try {
+    const [lista] = await pool.query(query,[actividadId])
+    const [tareas] = await pool.query(queryTareas,[actividadId])
+    res.status(200).json({lista,tareas});
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener Actividades"
+    });
+  }
+}
+
+const getColumnas = async( req,res) =>{
+  const query = 'SELECT * FROM columnas'
+  try {
+    const [result] = await pool.query(query)
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener columnas"
+    });
+  }
+}
+
+const getEventos = async( req,res) =>{
+  const query = 'SELECT * FROM evento'
+  try {
+    const [result] = await pool.query(query)
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener eventos"
+    });
+  }
+}
+
+const getCamposCode = async (req, res) => {
+    const { evento_id } = req.params;
+
+    const query = `
+        SELECT
+            cf.id,
+            cf.evento_id,
+            cf.nombreInterno,
+            cf.label,
+            cf.tipo,
+            cf.required,
+            cf.placeholder,
+            cf.orden,
+
+            co.id AS opcion_id,
+            co.texto,
+            co.valor,
+            co.orden AS opcion_orden
+
+        FROM campo_formulario cf
+        INNER JOIN evento e
+            ON e.id = cf.evento_id
+
+        LEFT JOIN campo_opcion co
+            ON co.campo_id = cf.id
+
+        WHERE e.codigo = ?
+
+        ORDER BY
+            cf.orden,
+            co.orden;
+    `;
+
+    try {
+        const [rows] = await pool.query(query, [evento_id]);
+
+        const campos = [];
+
+        rows.forEach((row) => {
+
+            let campo = campos.find(c => c.id === row.id);
+
+            if (!campo) {
+                campo = {
+                    id: row.id,
+                    evento_id: row.evento_id,
+                    nombreInterno: row.nombreInterno,
+                    label: row.label,
+                    tipo: row.tipo,
+                    required: row.required,
+                    placeholder: row.placeholder,
+                    orden: row.orden,
+                    opciones: []
+                };
+
+                campos.push(campo);
+            }
+
+            if (row.opcion_id) {
+                campo.opciones.push({
+                    id: row.opcion_id,
+                    texto: row.texto,
+                    valor: row.valor,
+                    orden: row.opcion_orden
+                });
+            }
+
+        });
+
+        res.status(200).json(campos);
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            success: false,
+            message: "Error al obtener los campos del formulario"
+        });
+    }
+};
+
+const getCamposPVCode = async (req, res) => {
+    const { evento_id } = req.params;
+
+    const query = `
+        SELECT
+            cf.id,
+            cf.evento_id,
+            cf.nombreInterno,
+            cf.label,
+            cf.tipo,
+            cf.required,
+            cf.placeholder,
+            cf.orden,
+
+            co.id AS opcion_id,
+            co.texto,
+            co.valor,
+            co.orden AS opcion_orden,
+
+            cr.id AS codigo_id,
+            cr.estado AS estadoRegistro
+
+        FROM campo_formulario cf
+        INNER JOIN evento e
+            ON e.id = cf.evento_id
+
+        LEFT JOIN campo_opcion co
+            ON co.campo_id = cf.id
+
+        LEFT JOIN codigo_registro cr
+            ON cr.evento_id = e.id
+
+        WHERE cr.codigo = ?
+
+        ORDER BY
+            cf.orden,
+            co.orden;
+    `;
+
+    try {
+        const [rows] = await pool.query(query, [evento_id]);
+
+        const campos = [];
+
+        rows.forEach((row) => {
+
+            let campo = campos.find(c => c.id === row.id);
+
+            if (!campo) {
+                campo = {
+                    id: row.id,
+                    evento_id: row.evento_id,
+                    nombreInterno: row.nombreInterno,
+                    label: row.label,
+                    tipo: row.tipo,
+                    required: row.required,
+                    placeholder: row.placeholder,
+                    orden: row.orden,
+                    opciones: []
+                };
+
+                campos.push(campo);
+            }
+
+            if (row.opcion_id) {
+                campo.opciones.push({
+                    id: row.opcion_id,
+                    texto: row.texto,
+                    valor: row.valor,
+                    orden: row.opcion_orden
+                });
+            }
+
+        });
+
+        res.status(200).json(campos);
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            success: false,
+            message: "Error al obtener los campos del formulario"
+        });
+    }
+};
+
+const getEventosCode = async( req,res) =>{
+  const {codigo} = req.params;
+  const query = 'SELECT * FROM evento WHERE codigo = ?'
+  try {
+    const [result] = await pool.query(query,[codigo])
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener eventos"
+    });
+  }
+}
+
+const getProyectosCodigo = async( req,res) =>{
+  const {codigo} = req.params;
+  const query = `
+    SELECT 
+      p.*,
+      d.nombres
+    FROM 
+      proyectos p
+    LEFT JOIN datos d ON d.id = p.responsable 
+    WHERE p.codigo = ?`
+
+  
+
+  const queryPersonal = `
+    SELECT 
+      d.id,
+      d.nombres,
+      r.nombre AS rol,
+      pe.estado,
+      pe.solicitud,
+      pe.fecha
+    FROM
+      proyectos_empleados pe
+    LEFT JOIN datos d ON d.id = pe.idPersonal
+    LEFT JOIN proyectos t ON t.id = pe.idProyecto
+    LEFT JOIN rol r ON r.id = d.idRol
+    WHERE t.codigo = ?
+    `
+  try {
+    const [result] = await pool.query(query,[codigo])
+    const [personal] = await pool.query(queryPersonal,[codigo])
+    res.status(200).json({result,personal});
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener columnas"
+    });
+  }
+}
+
+const getProyectos = async( req,res) =>{
+  const query = `
+    SELECT 
+      p.*,
+      d.nombres
+    FROM 
+      proyectos p
+    LEFT JOIN datos d ON d.id = p.responsable`
+  try {
+    const [result] = await pool.query(query)
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener proyectos"
+    });
+  }
+}
+
+const getEventoCodigo = async(req,res) =>{
+  const {codigo} = req.params;
+  // LEFT JOIN participante p ON p.evento_id = e.id
+  try {
+    const [result] = await pool.query(`
+      SELECT 
+        cr.* 
+      FROM codigo_registro cr
+      LEFT JOIN evento e ON e.id = cr.evento_id
+      WHERE e.codigo = ?
+      `,[codigo])
+      res.status(200).json(result);
+  } catch (error) {
+      console.log(error);
+      res.status(500).json({
+        success: false,
+        message: "Error al obtener Actividades"
+      });
+  }
+}
+
+const getActividadesProyect = async(req,res) =>{
+  const {codigo} = req.params;
+  try {
+    const [result] = await pool.query(
+      `SELECT 
+          a.id,
+          a.titulo,
+          a.descripcion,
+          s.nombre AS area,
+          a.prioridad,
+          a.creadorAct,
+          p.nombres AS personal,
+          c.nombres AS creador,
+          DATE_FORMAT(a.fechaCreacion, '%d-%m-%Y') AS fechaCreacion,
+          TIME_FORMAT(a.horaAsignacion, '%H:%i:%s') AS horaAsignacion,
+          a.estado
+      FROM proyect_activi pa
+      LEFT JOIN proyectos y ON y.id = pa.idProyecto
+      LEFT JOIN actividades a ON a.id = pa.idActividad
+      LEFT JOIN datos p ON p.id = a.personal
+      LEFT JOIN datos c ON c.id = a.creadorAct
+      LEFT JOIN areas s ON s.id = a.area
+      WHERE y.codigo = ?`,[codigo]);
+    res.status(200).json(result);
+  } catch (error) {
+    console.log(error);
+    
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener Actividades"
+    });
+  }
+}
+
+const getParticipantes = async (req, res) => {
+
+    const { codigo } = req.params;
+
+    const query = `
+        SELECT
+            p.id AS participante_id,
+            p.fechaRegistro,
+            p.estado,
+            p.codigo,
+            cf.id AS campo_id,
+            cf.label,
+            cf.nombreInterno,
+            cf.tipo,
+
+            rc.valor
+
+        FROM participante p
+
+        INNER JOIN respuesta_campo rc
+            ON rc.participante_id = p.id
+
+        INNER JOIN campo_formulario cf
+            ON cf.id = rc.campo_id
+
+        LEFT JOIN evento e
+            ON e.id = p.evento_id
+
+        WHERE e.codigo = ?
+
+        ORDER BY
+            p.id,
+            cf.orden;
+    `;
+
+    try {
+
+        const [rows] = await pool.query(query, [codigo]);
+
+        const participantes = [];
+
+        rows.forEach(row => {
+
+            let participante = participantes.find(
+                p => p.id === row.participante_id
+            );
+
+            if (!participante) {
+
+                participante = {
+                    id: row.participante_id,
+                    fechaRegistro: row.fechaRegistro,
+                    codigo:row.codigo,
+                    estado: row.estado,
+                    respuestas: {}
+                };
+
+                participantes.push(participante);
+            }
+
+            participante.respuestas[row.nombreInterno] = {
+                label: row.label,
+                valor: row.valor,
+                tipo: row.tipo
+            };
+
+        });
+
+        res.json(participantes);
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+            success: false,
+            message: "Error al obtener participantes"
+        });
+
+    }
+
+};
+
+const verificarParticipante = async (req, res) => {
+
+    const { codigo } = req.params;
+    const estado = 'ACTIVO'
+
+    const connection = await pool.getConnection();
+
+    try {
+
+        // Buscar participante
+        const [participante] = await connection.query(
+            `
+            SELECT
+                p.id,
+                p.codigo,
+                p.estado,
+                p.fechaRegistro,
+                e.nombre AS evento
+            FROM participante p
+            INNER JOIN evento e
+                ON e.id = p.evento_id
+            WHERE p.estado = ? AND p.codigo = ?
+            `,
+            [estado,codigo]
+        );
+
+        if (participante.length === 0) {
+
+            return res.status(404).json({
+                success: false,
+                message: "Código QR inválido"
+            });
+
+        }
+
+        const participanteId = participante[0].id;
+
+        // Obtener respuestas del formulario
+        const [respuestas] = await connection.query(
+            `
+            SELECT
+                cf.label,
+                cf.nombreInterno,
+                cf.tipo,
+                rc.valor
+            FROM respuesta_campo rc
+            INNER JOIN campo_formulario cf
+                ON cf.id = rc.campo_id
+            WHERE rc.participante_id = ?
+            ORDER BY cf.orden
+            `,
+            [participanteId]
+        );
+
+        return res.status(200).json({
+
+            success: true,
+
+            participante: participante[0],
+
+            respuestas
+
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        return res.status(500).json({
+
+            success: false,
+
+            message: "Error al verificar participante"
+
+        });
+
+    } finally {
+
+        connection.release();
+
+    }
+
+};
+
 module.exports={
     getColor,getTalla,getPrenda,getModelo,getPrendaId,getMaterial,getRutas,getRol,getPersonal,
     getTaller,getDetallesProduccion,getPrendasProduccion,getDetallePrenda,getInformePrenda,getMe,
     getInforPrenda,getDetallesInforme,getPrendaModelo,getClientes,getPedidos,getPedidosId,getPrendaSobreventa,
     getAsistencia,getAsistenciaId, getAsistenciaDash,getConfiguraciones,getNotificaciones,getCanvas,getCanvasID,
-    getPaquetes
+    getPaquetes,getAdministracion,getDetalesPrestamo,getGestion,procesarVencimientos,getActividades,getEvidenciaDatos,
+    getColumnas,getProyectos,getProyectosCodigo, getActividadesProyect, getEventos, getEventosCode, getCamposCode,
+    getParticipantes, getEventoCodigo, getCamposPVCode, verificarParticipante
 }

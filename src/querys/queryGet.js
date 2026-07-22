@@ -241,6 +241,7 @@ const queryMe =`
         d.idRol,
         d.correo,
         d.fotoPerfil,
+        d.presupuesto,
         r.nombre AS rol,
         rc.estado AS estadoModo,
         t.id As tallerId,
