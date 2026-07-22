@@ -6,6 +6,7 @@ const xlsx = require("xlsx");
 const path = require('path');
 const fs = require("fs");
 const moment = require('moment'); 
+const { procesarVencimientos } = require("./ControllerGet.js");
 
 const crearUsuario = async (req, res) => {
     const {
@@ -459,6 +460,8 @@ const loginUsuario = async (req, res) => {
             return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
         }
         const usuarioDb = rows[0];
+
+        
         if (contraseña !== usuarioDb.contraseña) {
             return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
         }
@@ -473,7 +476,6 @@ const loginUsuario = async (req, res) => {
 
         // Guardar el refresh token en la base de datos o en algún lugar seguro
         // Por ejemplo, podrías guardar el refresh token asociado al usuario en la base de datos.
-
         res.status(200).json({
             access_token: accessToken,
             refresh_token: refreshToken,  // Devolver el refresh token también

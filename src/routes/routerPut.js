@@ -1,6 +1,12 @@
 const { Router } = require("express");
 const { verificarToken,upload } = require("../controller/UserController.js");
-const { putAreasEstados, putInformes, putEstadosPedidos, PutCliente, putPersonal, putEstadoPersonal, putEditTaller, putRol, putCorreo, updateConfiguracion, updatePassword, putCampoNeg, putCampo, FotoPerfil, FotoTaller, putLeido, putCanvas } = require("../controller/Contollerput.js");
+const { putAreasEstados, putInformes, putEstadosPedidos, PutCliente, putPersonal, putEstadoPersonal, 
+    putEditTaller, putRol, putCorreo, updateConfiguracion, updatePassword, putCampoNeg, putCampo, FotoPerfil, 
+    FotoTaller, putLeido, putCanvas, putAdministracion, 
+    putAsignacion,
+    putTareaEstado,
+    putCampoProyect,
+    PutEstadoCambio} = require("../controller/Contollerput.js");
 
 const routerPut = Router();
 
@@ -39,4 +45,14 @@ routerPut.put('/putCanvas/:id',verificarToken,putCanvas)
 routerPut.put('/CambioFotoPerfil/:id',verificarToken,upload.single('perfilUsuario'),FotoPerfil)
 
 routerPut.put('/CambioFotoNegocio/:id',verificarToken,upload.single('perfilNegocio'),FotoTaller)
+
+routerPut.put('/PutAdministracion/:id/:userId',verificarToken,putAdministracion)
+
+routerPut.put('/PutAsignacion/:userId/:id',verificarToken,putAsignacion)
+
+routerPut.put('/PutTareaEstado/:idActividad/:id',verificarToken,putTareaEstado)
+
+routerPut.put('/PutProyectoCampo/:id',verificarToken,putCampoProyect)
+
+routerPut.put('/PutEstadoParticipante/:id',verificarToken,PutEstadoCambio)
 module.exports = routerPut;

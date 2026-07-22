@@ -1,6 +1,17 @@
 const { Router } = require("express");
-const { verificarToken } = require("../controller/UserController.js");
-const { postPrenda, postRol, postPersonal, postTaller, postProduccion, PostInformePrenda, PostColor, PostMaterial, PostCliente, PostVenta, PostObservacion, PostAsistencia, PostNotificacines, postCanvas, postRegistro, postModulos } = require("../controller/ControllerPost.js");
+const { verificarToken, upload } = require("../controller/UserController.js");
+const { postPrenda, postRol, postPersonal, postTaller, postProduccion, PostInformePrenda, PostColor, PostMaterial, 
+    PostCliente, PostVenta, PostObservacion, PostAsistencia, PostNotificacines, postCanvas, postRegistro, 
+    postModulos, postMovimientos, 
+    postPagosPrestamo,
+    PostActividad,
+    PostEvidencia,
+    PostTarea,PostProyecto,
+    PostProyectoPersonal,
+    PostEvento,
+    crearCampo,
+    registrarParticipante,
+    generarCodigosEvento} = require("../controller/ControllerPost.js");
 
 
 const routerPost = Router();
@@ -37,4 +48,25 @@ routerPost.post('/PostRegistro',verificarToken,postRegistro)
 
 routerPost.post('/PostCompra',verificarToken,postModulos)
 
+routerPost.post('/PostMovimientos/:tipoAdmin',verificarToken,postMovimientos)
+
+routerPost.post('/PostPagoPrestamo',verificarToken,postPagosPrestamo)
+
+routerPost.post('/PostActividad/:userId',verificarToken,PostActividad)
+
+routerPost.post('/PostEvidencia/:id',verificarToken,upload.single('evidencia'),PostEvidencia)
+
+routerPost.post('/PostTarea/:idActividad',verificarToken,PostTarea)
+
+routerPost.post('/PostProyecto',verificarToken,PostProyecto)
+
+routerPost.post('/PostEvento',verificarToken,PostEvento)
+
+routerPost.post('/PostCampo/:eventoId',verificarToken,crearCampo);
+
+routerPost.post('/PostProyectoPersonal/:idProyecto/:idPersonal',verificarToken,PostProyectoPersonal)
+
+routerPost.post('/PostGenerarCodigo/:evento_id',verificarToken,generarCodigosEvento)
+
+routerPost.post('/registrarParticipante',registrarParticipante)
 module.exports = routerPost;
