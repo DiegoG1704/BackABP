@@ -4,19 +4,19 @@ const { DeleteCliente, DeleteTaller, deleteRol, DeletePlantilla, DeleteAdministr
 
 const routerDelt = Router();
 
-routerDelt.delete('/DeleteCliente/:id',verificarToken,DeleteCliente)
+// routerDelt.delete('/DeleteCliente/:id',verificarToken,DeleteCliente)
 
-routerDelt.delete('/DeleteTaller/:id',verificarToken,DeleteTaller)
+// routerDelt.delete('/DeleteTaller/:id',verificarToken,DeleteTaller)
 
-routerDelt.delete('/DeleteRol/:id',verificarToken,deleteRol)
+// routerDelt.delete('/DeleteRol/:id',verificarToken,deleteRol)
 
-routerDelt.delete('/DeletePlantilla/:id',verificarToken,DeletePlantilla)
+// routerDelt.delete('/DeletePlantilla/:id',verificarToken,DeletePlantilla)
 
-// routerDelt.delete('/DeleteActividad/:id',verificarToken,DeletePlantilla)
+// // routerDelt.delete('/DeleteActividad/:id',verificarToken,DeletePlantilla)
 
-routerDelt.delete('/DeleteAdministracion/:id/:userId',verificarToken,DeleteAdministracion)
+// routerDelt.delete('/DeleteAdministracion/:id/:userId',verificarToken,DeleteAdministracion)
 
-routerDelt.delete('/DeleteActividad/:id',verificarToken,DeleteActividad)
+// routerDelt.delete('/DeleteActividad/:id',verificarToken,DeleteActividad)
 
-routerDelt.delete('/DeleteProyectPers/:idProyecto/:idPersonal',verificarToken,DeleteProyectoPers)
+// routerDelt.delete('/DeleteProyectPers/:idProyecto/:idPersonal',verificarToken,DeleteProyectoPers)
 module.exports = routerDelt;
