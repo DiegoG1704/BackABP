@@ -7,6 +7,8 @@ const path = require('path');
 const fs = require("fs");
 const moment = require('moment');
 const QRCode = require("qrcode");
+const { v4: uuidv4 } = require("uuid");
+const { default: axios } = require("axios");
 
 //--------------------------------------------------------
 const generarCodigo = (longitud = 10) => {
@@ -153,6 +155,9 @@ const crearCampo = async (req, res) => {
 const registrarParticipante = async (req, res) => {
 
     const {
+        dni,
+        nombres,
+        apellidos,
         estado,
         codigoEvento,
         codigoRegistro,
@@ -165,7 +170,57 @@ const registrarParticipante = async (req, res) => {
 
     try {
 
+        const normalizar = (texto) =>
+            texto
+                ?.normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .trim()
+                .replace(/\s+/g, " ")
+                .toUpperCase();
+
         await connection.beginTransaction();
+        try {
+            const { data } = await axios.get(
+                `https://api.perudevs.com/api/v1/dni/complete?document=${dni}&key=${process.env.PERUDEV}`
+            );
+
+            if (!data.resultado) {
+                await connection.rollback();
+
+                return res.status(400).json({
+                    success: false,
+                    message: "No se pudo validar el DNI."
+                });
+            }
+            const nombresApi = data.resultado.nombres;
+
+            const apellidosApi =
+                `${data.resultado.apellido_paterno} ${data.resultado.apellido_materno}`;
+            if (
+                normalizar(nombresApi) !== normalizar(nombres) ||
+                normalizar(apellidosApi) !== normalizar(apellidos)
+            ) {
+
+                await connection.rollback();
+
+                return res.status(400).json({
+                    success: false,
+                    message: "Los nombres o apellidos no coinciden con el DNI.",
+                    datosReniec: {
+                        nombres: data.resultado.nombres,
+                        apellidos: `${data.resultado.apellido_paterno} ${data.resultado.apellido_materno}`
+                    }
+                });
+
+            }
+        } catch (error) {
+            await connection.rollback();
+
+            return res.status(500).json({
+                success: false,
+                message: "Error al consultar el servicio de validación de DNI."
+            });
+        }
 
 
         // Buscar evento
@@ -269,7 +324,7 @@ const registrarParticipante = async (req, res) => {
 
 
 
-        const codigoPer = generarCodigo(10);
+        const codigoPer = uuidv4().replace(/-/g, "").slice(0, 10);
         // Crear participante
 
         const [participante] = await connection.query(
@@ -279,12 +334,18 @@ const registrarParticipante = async (req, res) => {
                 evento_id,
                 fechaRegistro,
                 estado,
-                codigo
+                codigo,
+                dni,
+                nombres,
+                apellidos
             )
             VALUES
             (
                 ?,
                 NOW(),
+                ?,
+                ?,
+                ?,
                 ?,
                 ?
             )
@@ -292,7 +353,10 @@ const registrarParticipante = async (req, res) => {
             [
                 eventoId,
                 estado,
-                codigoPer
+                codigoPer,
+                dni,
+                nombres,
+                apellidos
             ]
         );
 

@@ -6,6 +6,7 @@ const xlsx = require("xlsx");
 const path = require('path');
 const fs = require("fs");
 const moment = require('moment');
+const { queryMe, queryRutasUser } = require("../querys/queryGet.js");
 
 //--------------------------------------------------------------------
 
