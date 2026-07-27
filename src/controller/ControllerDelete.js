@@ -142,6 +142,30 @@ const DeleteActividad = async (req, res) => {
   }
 };
 
+const DeleteCampo = async (req, res)=>{
+  const {id}= req.params
+  const query = 'DELETE FROM campo_formulario WHERE id = ?'
+  try {
+    const [result]= await pool.query(query,[id])
+    res.status(200).json({ message: 'Exito en eliminar'})
+  } catch (error) {
+    console.error('Error al obtener las prendas:', error);
+    res.status(500).json({ message: 'Error al obtener las prendas' });
+  }
+}
+
+const DeleteEmpresa = async(req,res) =>{
+    const {id,evento_id}= req.params;
+    const query ='DELETE FROM empresa WHERE evento_id = ? AND id = ?'
+    try {
+        await pool.query(query,[evento_id,id])
+        res.status(200).json({ message: 'Cambio con éxito' });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json('error');
+    }
+}
 module.exports={
-    DeleteCliente,DeleteTaller,deleteRol,DeletePlantilla,DeleteAdministracion,DeleteActividad,DeleteProyectoPers
+    DeleteCliente,DeleteTaller,deleteRol,DeletePlantilla,DeleteAdministracion,DeleteActividad,DeleteProyectoPers,
+    DeleteCampo
 }

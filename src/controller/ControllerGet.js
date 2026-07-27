@@ -26,6 +26,28 @@ const getEventos = async( req,res) =>{
 const getCamposCode = async (req, res) => {
     const { evento_id } = req.params;
 
+    const [evento] = await pool.query(
+        `
+        SELECT 
+            id,
+            tipo
+        FROM evento
+        WHERE codigo = ?
+        `,
+        [
+            evento_id
+        ]
+    );
+
+
+    if(evento.length === 0){
+
+        return res.status(404).json({
+            success:false,
+            message:"Evento no encontrado"
+        });
+
+    }
     const query = `
         SELECT
             cf.id,
@@ -106,6 +128,29 @@ const getCamposCode = async (req, res) => {
 
 const getCamposPVCode = async (req, res) => {
     const { evento_id } = req.params;
+
+    const [evento] = await pool.query(
+        `
+        SELECT 
+            id,
+            tipo
+        FROM evento
+        WHERE codigo = ?
+        `,
+        [
+            evento_id
+        ]
+    );
+
+
+    if(evento.length === 0){
+
+        return res.status(404).json({
+            success:false,
+            message:"Evento no encontrado"
+        });
+
+    }
 
     const query = `
         SELECT
@@ -267,6 +312,10 @@ const getParticipantes = async (req, res) => {
     const query = `
         SELECT
             p.id AS participante_id,
+            p.dni,
+            p.nombres,
+            p.apellidos,
+            em.nombre AS nombreEmpresa,
             p.fechaRegistro,
             p.estado,
             p.codigo,
@@ -287,6 +336,12 @@ const getParticipantes = async (req, res) => {
 
         LEFT JOIN evento e
             ON e.id = p.evento_id
+        
+        LEFT JOIN empresa_participante ep
+            ON ep.idParticipante = p.id
+        
+        LEFT JOIN empresa em
+            ON em.id = ep.idEmpresa
 
         WHERE e.codigo = ?
 
@@ -311,6 +366,10 @@ const getParticipantes = async (req, res) => {
 
                 participante = {
                     id: row.participante_id,
+                    dni:row.dni,
+                    nombres:row.nombres,
+                    apellidos:row.apellidos,
+                    nombreEmpresa:row.nombreEmpresa,
                     fechaRegistro: row.fechaRegistro,
                     codigo:row.codigo,
                     estado: row.estado,
@@ -440,11 +499,9 @@ const getMe = async (req, res) => {
     const idRol = DatosUsuarios[0].idRol;
     const idUsuario = DatosUsuarios[0].idUser;
 
-    const [Rutas] = await pool.query(queryRutasUser, [idRol,idUsuario]);
 
     res.status(200).json({
-      datosUsuario: DatosUsuarios[0],
-      rutas: Rutas
+      datosUsuario: DatosUsuarios[0]
     });
   } catch (error) {
     console.error('Error al obtener detalles de producción:', error);
@@ -487,7 +544,25 @@ const getConfiguraciones = async (req, res) => {
   }
 };
 
+const getEmpresa = async (req,res) =>{
+    const {evento_id} = req.params
+    const query = `
+        SELECT 
+            r.* 
+        FROM 
+            empresa r
+        LEFT JOIN evento e ON e.id = r.evento_id
+        WHERE e.codigo = ?`
+    try {
+        const [result] = await pool.query(query,[evento_id])
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('Error al obtener configuraciones:', err.message);
+        res.status(500).json({ message: 'Error al obtener las configuraciones' });
+    }
+}
+
 module.exports={
     getConfiguraciones,getEventos,getEventosCode,getCamposCode,getParticipantes,getEventoCodigo,
-    getCamposPVCode,verificarParticipante, getMe
+    getCamposPVCode,verificarParticipante, getMe, getEmpresa
 }
