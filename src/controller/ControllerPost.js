@@ -181,6 +181,7 @@ const registrarParticipante = async (req, res) => {
                 codigoEvento
             ]
         );
+        console.log("evento", evento);
 
 
         if(evento.length === 0){
