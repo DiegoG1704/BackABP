@@ -38,7 +38,7 @@ const getCamposCode = async (req, res) => {
             evento_id
         ]
     );
-
+ 
 
     if(evento.length === 0){
 
@@ -562,7 +562,54 @@ const getEmpresa = async (req,res) =>{
     }
 }
 
+const getComprobacion = async (req, res) => {
+    const { codigo } = req.params;
+
+    try {
+        // Buscar primero en empresa
+        const [resultEmpresa] = await pool.query(
+            `SELECT * FROM empresa WHERE codigo = ?`,
+            [codigo]
+        );
+
+        if (resultEmpresa.length > 0) {
+            return res.status(200).json({
+                success: true,
+                message: "Código verificado",
+                origen: "empresa"
+            });
+        }
+
+        // Si no existe en empresa, buscar en codigo_registro
+        const [resultRegistro] = await pool.query(
+            `SELECT * FROM codigo_registro WHERE codigo = ?`,
+            [codigo]
+        );
+
+        if (resultRegistro.length > 0) {
+            return res.status(200).json({
+                success: true,
+                message: "Código verificado",
+                origen: "codigo_registro"
+            });
+        }
+
+        // No se encontró en ninguna tabla
+        return res.status(404).json({
+            success: false,
+            message: "Código no encontrado"
+        });
+
+    } catch (error) {
+        console.error("Error al verificar código:", error.message);
+        return res.status(500).json({
+            success: false,
+            message: "Error al verificar el código"
+        });
+    }
+};
+
 module.exports={
     getConfiguraciones,getEventos,getEventosCode,getCamposCode,getParticipantes,getEventoCodigo,
-    getCamposPVCode,verificarParticipante, getMe, getEmpresa
+    getCamposPVCode,verificarParticipante, getMe, getEmpresa, getComprobacion
 }
