@@ -20,6 +20,19 @@ const putCorreo = async(req,res) =>{
     }
 }
 
+const putCuposEmpresa = async(req,res) =>{
+    const {id}= req.params;
+    const {cupos} = req.body;
+    const query ='UPDATE empresa SET cupos =? WHERE id=?'
+    try {
+        await pool.query(query,[cupos,id])
+        res.status(200).json({ message: 'Cambio con éxito' });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json('error');
+    }
+}
+
 const updateConfiguracion = async (req, res) => {
   const { id } = req.params;
   const { estado } = req.body;
@@ -195,5 +208,5 @@ const putCampoProyect = async (req, res) => {
 
 module.exports={
     putCampo,putCampoNeg,  FotoPerfil,putCorreo,updateConfiguracion,updatePassword,FotoTaller,putCampoProyect,
-        PutEstadoCambio
+        PutEstadoCambio, putCuposEmpresa
 }

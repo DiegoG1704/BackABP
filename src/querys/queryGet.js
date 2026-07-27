@@ -243,12 +243,7 @@ const queryMe =`
         d.fotoPerfil,
         d.presupuesto,
         r.nombre AS rol,
-        rc.estado AS estadoModo,
-        t.id As tallerId,
-        t.nombre AS nombreTaller,
-        t.imagen AS imagenTaller,
-        t.direccion,
-        t.ruc
+        rc.estado AS estadoModo
     FROM
         usuario u
     LEFT JOIN
@@ -257,8 +252,6 @@ const queryMe =`
         rol r ON r.id = d.idRol
     LEFT JOIN
         rol_config rc ON rc.userId = d.id
-    LEFT JOIN
-        talleres t ON t.idEncargado = d.id
     WHERE
         u.id=?
 `;

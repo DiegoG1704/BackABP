@@ -7,6 +7,8 @@ const path = require('path');
 const fs = require("fs");
 const moment = require('moment');
 const QRCode = require("qrcode");
+const { v4: uuidv4 } = require("uuid");
+const { default: axios } = require("axios");
 
 //--------------------------------------------------------
 const generarCodigo = (longitud = 10) => {
@@ -23,13 +25,13 @@ const generarCodigo = (longitud = 10) => {
 };
 
 const PostEvento = async (req, res) => {
-  const { nombre, descripcion, fechaEvento, tipo } = req.body;
+  const { nombre, descripcion, fechaEvento, tipo, cupos } = req.body;
 
   const codigo = generarCodigo(10);
 
   const query = `
-    INSERT INTO evento (nombre, descripcion, fechaEvento, tipo, codigo)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO evento (nombre, descripcion, fechaEvento, tipo, cupos, codigo)
+    VALUES (?, ?, ?, ?, ?, ?)
   `;
 
   try {
@@ -38,6 +40,7 @@ const PostEvento = async (req, res) => {
       descripcion,
       fechaEvento,
       tipo,
+      cupos,
       codigo,
     ]);
 
@@ -45,6 +48,38 @@ const PostEvento = async (req, res) => {
       ok: true,
       message: "Proyecto registrado correctamente",
       codigo,
+    });
+  } catch (error) {
+    console.error("Error:", error);
+    return res.status(500).json({
+      ok: false,
+      message: "Error interno del servidor",
+      error: error.message,
+    });
+  }
+};
+
+const PostEmpresa = async (req, res) => {
+  const {evento_id} = req.params;
+  const { nombre, cupos } = req.body;
+  const codigo = uuidv4().replace(/-/g, "").slice(0, 10);
+
+  const query = `
+    INSERT INTO empresa (codigo, nombre, cupos, evento_id)
+    VALUES (?, ?, ?, ?)
+  `;
+
+  try {
+    await pool.query(query, [
+        codigo,
+      nombre,
+      cupos,
+      evento_id
+    ]);
+
+    return res.status(200).json({
+      ok: true,
+      message: "empresa registrado correctamente"
     });
   } catch (error) {
     console.error("Error:", error);
@@ -153,7 +188,11 @@ const crearCampo = async (req, res) => {
 const registrarParticipante = async (req, res) => {
 
     const {
+        dni,
+        nombres,
+        apellidos,
         estado,
+        codigoEmpresa,
         codigoEvento,
         codigoRegistro,
         respuestas
@@ -165,7 +204,57 @@ const registrarParticipante = async (req, res) => {
 
     try {
 
+        const normalizar = (texto) =>
+            texto
+                ?.normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .trim()
+                .replace(/\s+/g, " ")
+                .toUpperCase();
+
         await connection.beginTransaction();
+        try {
+            const { data } = await axios.get(
+                `https://api.perudevs.com/api/v1/dni/complete?document=${dni}&key=${process.env.PERUDEV}`
+            );
+
+            if (!data.resultado) {
+                await connection.rollback();
+
+                return res.status(400).json({
+                    success: false,
+                    message: "No se pudo validar el DNI."
+                });
+            }
+            const nombresApi = data.resultado.nombres;
+
+            const apellidosApi =
+                `${data.resultado.apellido_paterno} ${data.resultado.apellido_materno}`;
+            if (
+                normalizar(nombresApi) !== normalizar(nombres) ||
+                normalizar(apellidosApi) !== normalizar(apellidos)
+            ) {
+
+                await connection.rollback();
+
+                return res.status(400).json({
+                    success: false,
+                    message: "Los nombres o apellidos no coinciden con el DNI.",
+                    datosReniec: {
+                        nombres: data.resultado.nombres,
+                        apellidos: `${data.resultado.apellido_paterno} ${data.resultado.apellido_materno}`
+                    }
+                });
+
+            }
+        } catch (error) {
+            await connection.rollback();
+
+            return res.status(500).json({
+                success: false,
+                message: "Error al consultar el servicio de validación de DNI."
+            });
+        }
 
 
         // Buscar evento
@@ -203,6 +292,38 @@ const registrarParticipante = async (req, res) => {
 
 
 
+        let empresa = null;
+
+        if (codigoEmpresa){
+            const [result] = await connection.query(
+                `SELECT * FROM empresa WHERE codigo = ?`,[codigoEmpresa]
+            )
+
+            if (result.length === 0) {
+
+                await connection.rollback();
+
+                return res.status(404).json({
+                    success:false,
+                    message:"Empresa no encontrada"
+                });
+
+            }
+
+            empresa = result[0];
+            
+
+            if(empresa.cupos === 0){
+
+                await connection.rollback();
+
+                return res.status(404).json({
+                    success:false,
+                    message:"Link sin cupos"
+                });
+
+            }
+        }
         /*
             1 = Público
             2 = Privado
@@ -211,11 +332,9 @@ const registrarParticipante = async (req, res) => {
 
         let codigoId = null;
 
-
-
         // Validar código privado
 
-        if(tipoRegistro === "2"){
+        if(tipoRegistro === "2" && !codigoEmpresa){
 
 
             if(!codigoRegistro){
@@ -267,10 +386,29 @@ const registrarParticipante = async (req, res) => {
 
         }
 
+        const [participanteExistente] = await connection.query(
+            `
+            SELECT id
+            FROM participante
+            WHERE evento_id = ?
+            AND dni = ?
+            LIMIT 1
+            `,
+            [eventoId, dni]
+        );
 
+        if (participanteExistente.length > 0) {
 
+            await connection.rollback();
 
-        const codigoPer = generarCodigo(10);
+            return res.status(409).json({
+                success: false,
+                message: "El participante ya se encuentra registrado en este evento."
+            });
+
+        }
+
+        const codigoPer = uuidv4().replace(/-/g, "").slice(0, 10);
         // Crear participante
 
         const [participante] = await connection.query(
@@ -280,12 +418,18 @@ const registrarParticipante = async (req, res) => {
                 evento_id,
                 fechaRegistro,
                 estado,
-                codigo
+                codigo,
+                dni,
+                nombres,
+                apellidos
             )
             VALUES
             (
                 ?,
                 NOW(),
+                ?,
+                ?,
+                ?,
                 ?,
                 ?
             )
@@ -293,13 +437,31 @@ const registrarParticipante = async (req, res) => {
             [
                 eventoId,
                 estado,
-                codigoPer
+                codigoPer,
+                dni,
+                nombres,
+                apellidos
             ]
         );
 
-
-
         const participanteId = participante.insertId;
+
+        if (codigoEmpresa){
+            
+            const idEmpresa = empresa.id
+
+            await connection.query(`
+                INSERT INTO empresa_participante(idParticipante,idEmpresa)
+                VALUES (?,?)
+                `,[participanteId,idEmpresa])
+            
+            await connection.query(`
+                UPDATE empresa
+                SET cupos = cupos - 1
+                WHERE codigo = ?
+                AND cupos > 0
+                `,[codigoEmpresa])
+        }
 
          
         // Guardar respuestas
@@ -343,7 +505,7 @@ const registrarParticipante = async (req, res) => {
 
         // Marcar código como usado
 
-        if(tipoRegistro === "2"){
+        if(tipoRegistro === "2" && !codigoEmpresa){
 
 
             await connection.query(
@@ -536,5 +698,5 @@ const generarCodigosEvento = async (req, res) => {
 };
 
 module.exports={
-  PostEvento,crearCampo, registrarParticipante, generarCodigosEvento
+  PostEvento,crearCampo, registrarParticipante, generarCodigosEvento, PostEmpresa
 }

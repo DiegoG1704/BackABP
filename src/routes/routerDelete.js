@@ -1,8 +1,10 @@
 const { Router } = require("express");
 const { verificarToken } = require("../controller/UserController.js");
-const { DeleteCliente, DeleteTaller, deleteRol, DeletePlantilla, DeleteAdministracion, DeleteActividad, DeleteProyectoPers } = require("../controller/ControllerDelete.js");
+const { DeleteCampo } = require("../controller/ControllerDelete.js");
 
 const routerDelt = Router();
+
+routerDelt.delete('/DeleteCampo/:id',verificarToken,DeleteCampo)
 
 // routerDelt.delete('/DeleteCliente/:id',verificarToken,DeleteCliente)
 

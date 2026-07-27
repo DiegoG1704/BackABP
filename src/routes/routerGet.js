@@ -1,7 +1,8 @@
 const { Router } = require("express");
 const { verificarToken } = require("../controller/UserController.js");
 const { getConfiguraciones,getEventos,getEventosCode,getCamposCode,getParticipantes,getEventoCodigo,
-    getCamposPVCode,verificarParticipante, getMe} = require("../controller/ControllerGet.js");
+    getCamposPVCode,verificarParticipante, getMe,
+    getEmpresa} = require("../controller/ControllerGet.js");
 
 const routerGet = Router();
 
@@ -20,6 +21,8 @@ routerGet.get('/getParticipantes/:codigo',verificarToken,getParticipantes)
 routerGet.get('/getEventoCodigo/:codigo',verificarToken,getEventoCodigo)
 
 routerGet.get("/getVerificar/:codigo", verificarParticipante);
+
+routerGet.get("/getEmpresa/:evento_id",verificarToken, getEmpresa);
 
 routerGet.get('/me/:id',getMe)
 module.exports = routerGet;

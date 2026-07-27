@@ -4,12 +4,15 @@ const {
     PostEvento,
     crearCampo,
     registrarParticipante,
-    generarCodigosEvento} = require("../controller/ControllerPost.js");
+    generarCodigosEvento,
+    PostEmpresa} = require("../controller/ControllerPost.js");
 
 
 const routerPost = Router();
 
 routerPost.post('/PostEvento',verificarToken,PostEvento)
+
+routerPost.post('/PostEmpresa/:evento_id',verificarToken, PostEmpresa)
 
 routerPost.post('/PostCampo/:eventoId',verificarToken,crearCampo);
 

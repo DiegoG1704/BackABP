@@ -2,7 +2,8 @@ const { Router } = require("express");
 const { verificarToken,upload } = require("../controller/UserController.js");
 const { 
     putCampo,putCampoNeg,  FotoPerfil,putCorreo,updateConfiguracion,updatePassword,FotoTaller,putCampoProyect,
-    PutEstadoCambio} = require("../controller/Contollerput.js");
+    PutEstadoCambio,
+    putCuposEmpresa} = require("../controller/Contollerput.js");
 
 const routerPut = Router();
 
@@ -23,4 +24,6 @@ routerPut.put('/CambioFotoNegocio/:id',verificarToken,upload.single('perfilNegoc
 routerPut.put('/PutProyectoCampo/:id',verificarToken,putCampoProyect)
 
 routerPut.put('/PutEstadoParticipante/:id',verificarToken,PutEstadoCambio)
+
+routerPut.put('/PutCuposEmpresa/:id',verificarToken,putCuposEmpresa)
 module.exports = routerPut;
