@@ -245,7 +245,7 @@ const getEventosCode = async( req,res) =>{
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Error al obtener eventos"
+      message: "Error al obtener eventos",error: error.message
     });
   }
 }

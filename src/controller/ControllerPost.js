@@ -240,10 +240,7 @@ const registrarParticipante = async (req, res) => {
                 return res.status(400).json({
                     success: false,
                     message: "Los nombres o apellidos no coinciden con el DNI.",
-                    datosReniec: {
-                        nombres: data.resultado.nombres,
-                        apellidos: `${data.resultado.apellido_paterno} ${data.resultado.apellido_materno}`
-                    }
+                   
                 });
 
             }
