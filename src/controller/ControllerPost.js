@@ -259,7 +259,8 @@ const registrarParticipante = async (req, res) => {
             `
             SELECT 
                 id,
-                tipo
+                tipo,
+                cupos
             FROM evento
             WHERE codigo = ?
             `,
@@ -286,6 +287,8 @@ const registrarParticipante = async (req, res) => {
         const eventoId = evento[0].id;
 
         const tipoRegistro = evento[0].tipo;
+
+        const cupos = evento[0].cupos;
 
 
 
@@ -405,6 +408,41 @@ const registrarParticipante = async (req, res) => {
 
         }
 
+        if (tipoRegistro === "1" && cupos <= 0) {
+            await connection.rollback();
+
+            return res.status(400).json({
+                success: false,
+                message: "El evento ya no tiene cupos."
+            });
+        }
+
+        if(tipoRegistro === "1" && cupos > 0 && !codigoEmpresa){
+
+
+            const [updateEvento] = await connection.query(
+            `
+                UPDATE evento
+                SET cupos = cupos -1
+                WHERE codigo=?
+                AND cupos>0
+            `,
+            [codigoEvento]
+            );
+
+            if(updateEvento.affectedRows === 0){
+                await connection.rollback();
+
+                return res.status(400).json({
+                    success:false,
+                    message:"El evento ya no tiene cupos."
+                });
+            }
+
+
+
+        }
+
         const codigoPer = uuidv4().replace(/-/g, "").slice(0, 10);
         // Crear participante
 
@@ -452,12 +490,25 @@ const registrarParticipante = async (req, res) => {
                 VALUES (?,?)
                 `,[participanteId,idEmpresa])
             
-            await connection.query(`
-                UPDATE empresa
-                SET cupos = cupos - 1
-                WHERE codigo = ?
-                AND cupos > 0
-                `,[codigoEmpresa])
+            const [updateEmpresa] = await connection.query(
+            `
+            UPDATE empresa
+            SET cupos = cupos - 1
+            WHERE codigo = ?
+            AND cupos > 0
+            `,
+            [codigoEmpresa]
+            );
+
+            if(updateEmpresa.affectedRows === 0){
+                await connection.rollback();
+
+                return res.status(400).json({
+                    success:false,
+                    message:"La empresa ya no tiene cupos."
+                });
+            }
+
         }
 
          
@@ -496,8 +547,6 @@ const registrarParticipante = async (req, res) => {
 
 
         }
-
-
 
 
         // Marcar código como usado
