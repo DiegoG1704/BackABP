@@ -1,5 +1,5 @@
 const multer = require("multer");
-const {pool} = require("../database.js");
+const { pool } = require("../database.js");
 const jwt = require('jsonwebtoken');
 const csv = require("csv-parser");
 const xlsx = require("xlsx");
@@ -10,17 +10,17 @@ const { queryMe, queryRutasUser } = require("../querys/queryGet.js");
 
 //--------------------------------------------------------------------
 
-const getEventos = async( req,res) =>{
-  const query = 'SELECT * FROM evento'
-  try {
-    const [result] = await pool.query(query)
-    res.status(200).json(result);
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error al obtener eventos"
-    });
-  }
+const getEventos = async (req, res) => {
+    const query = 'SELECT * FROM evento'
+    try {
+        const [result] = await pool.query(query)
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Error al obtener eventos"
+        });
+    }
 }
 
 const getCamposCode = async (req, res) => {
@@ -38,13 +38,13 @@ const getCamposCode = async (req, res) => {
             evento_id
         ]
     );
- 
 
-    if(evento.length === 0){
+
+    if (evento.length === 0) {
 
         return res.status(404).json({
-            success:false,
-            message:"Evento no encontrado"
+            success: false,
+            message: "Evento no encontrado"
         });
 
     }
@@ -131,65 +131,65 @@ const getCamposPVCode = async (req, res) => {
 
     const [evento] = await pool.query(
         `
-        SELECT 
+        SELECT
             id,
             tipo
         FROM evento
-        WHERE codigo = ?
-        `,
-        [
-            evento_id
-        ]
+        WHERE evento.codigo = ?
+    `,
+        [evento_id]
     );
 
 
-    if(evento.length === 0){
+
+    if (evento.length === 0) {
 
         return res.status(404).json({
-            success:false,
-            message:"Evento no encontrado"
+            success: false,
+            message: "Evento no encontrado"
         });
 
     }
 
     const query = `
-        SELECT
-            cf.id,
-            cf.evento_id,
-            cf.nombreInterno,
-            cf.label,
-            cf.tipo,
-            cf.required,
-            cf.placeholder,
-            cf.orden,
+      SELECT
+    cf.id,
+    cf.evento_id,
+    cf.nombreInterno,
+    cf.label,
+    cf.tipo,
+    cf.required,
+    cf.placeholder,
+    cf.orden,
 
-            co.id AS opcion_id,
-            co.texto,
-            co.valor,
-            co.orden AS opcion_orden,
+    co.id AS opcion_id,
+    co.texto,
+    co.valor,
+    co.orden AS opcion_orden,
 
-            cr.id AS codigo_id,
-            cr.estado AS estadoRegistro
+    cr.id AS codigo_id,
+    cr.estado AS estadoRegistro
 
-        FROM campo_formulario cf
-        INNER JOIN evento e
-            ON e.id = cf.evento_id
+FROM campo_formulario cf
+INNER JOIN evento e
+    ON e.id = cf.evento_id
 
-        LEFT JOIN campo_opcion co
-            ON co.campo_id = cf.id
+LEFT JOIN campo_opcion co
+    ON co.campo_id = cf.id
 
-        LEFT JOIN codigo_registro cr
-            ON cr.evento_id = e.id
+LEFT JOIN codigo_registro cr
+    ON cr.evento_id = e.id
 
-        WHERE cr.codigo = ?
+WHERE cf.evento_id = ?
 
-        ORDER BY
-            cf.orden,
-            co.orden;
+
+ORDER BY
+    cf.orden,
+    co.orden;
     `;
 
     try {
-        const [rows] = await pool.query(query, [evento_id]);
+        const [rows] = await pool.query(query, [evento[0].id]);
 
         const campos = [];
 
@@ -236,46 +236,46 @@ const getCamposPVCode = async (req, res) => {
     }
 };
 
-const getEventosCode = async( req,res) =>{
-  const {codigo} = req.params;
-  const query = 'SELECT * FROM evento WHERE codigo = ?'
-  try {
-    const [result] = await pool.query(query,[codigo])
-    res.status(200).json(result);
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error al obtener eventos",error: error.message
-    });
-  }
+const getEventosCode = async (req, res) => {
+    const { codigo } = req.params;
+    const query = 'SELECT * FROM evento WHERE codigo = ?'
+    try {
+        const [result] = await pool.query(query, [codigo])
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Error al obtener eventos", error: error.message
+        });
+    }
 }
 
-const getEventoCodigo = async(req,res) =>{
-  const {codigo} = req.params;
-  // LEFT JOIN participante p ON p.evento_id = e.id
-  try {
-    const [result] = await pool.query(`
+const getEventoCodigo = async (req, res) => {
+    const { codigo } = req.params;
+    // LEFT JOIN participante p ON p.evento_id = e.id
+    try {
+        const [result] = await pool.query(`
       SELECT 
         cr.* 
       FROM codigo_registro cr
       LEFT JOIN evento e ON e.id = cr.evento_id
       WHERE e.codigo = ?
-      `,[codigo])
-      res.status(200).json(result);
-  } catch (error) {
-      console.log(error);
-      res.status(500).json({
-        success: false,
-        message: "Error al obtener Actividades"
-      });
-  }
+      `, [codigo])
+        res.status(200).json(result);
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            success: false,
+            message: "Error al obtener Actividades"
+        });
+    }
 }
 
-const getActividadesProyect = async(req,res) =>{
-  const {codigo} = req.params;
-  try {
-    const [result] = await pool.query(
-      `SELECT 
+const getActividadesProyect = async (req, res) => {
+    const { codigo } = req.params;
+    try {
+        const [result] = await pool.query(
+            `SELECT 
           a.id,
           a.titulo,
           a.descripcion,
@@ -293,16 +293,16 @@ const getActividadesProyect = async(req,res) =>{
       LEFT JOIN datos p ON p.id = a.personal
       LEFT JOIN datos c ON c.id = a.creadorAct
       LEFT JOIN areas s ON s.id = a.area
-      WHERE y.codigo = ?`,[codigo]);
-    res.status(200).json(result);
-  } catch (error) {
-    console.log(error);
-    
-    res.status(500).json({
-      success: false,
-      message: "Error al obtener Actividades"
-    });
-  }
+      WHERE y.codigo = ?`, [codigo]);
+        res.status(200).json(result);
+    } catch (error) {
+        console.log(error);
+
+        res.status(500).json({
+            success: false,
+            message: "Error al obtener Actividades"
+        });
+    }
 }
 
 const getParticipantes = async (req, res) => {
@@ -366,12 +366,12 @@ const getParticipantes = async (req, res) => {
 
                 participante = {
                     id: row.participante_id,
-                    dni:row.dni,
-                    nombres:row.nombres,
-                    apellidos:row.apellidos,
-                    nombreEmpresa:row.nombreEmpresa,
+                    dni: row.dni,
+                    nombres: row.nombres,
+                    apellidos: row.apellidos,
+                    nombreEmpresa: row.nombreEmpresa,
                     fechaRegistro: row.fechaRegistro,
-                    codigo:row.codigo,
+                    codigo: row.codigo,
                     estado: row.estado,
                     respuestas: {}
                 };
@@ -425,7 +425,7 @@ const verificarParticipante = async (req, res) => {
                 ON e.id = p.evento_id
             WHERE p.estado = ? AND p.codigo = ?
             `,
-            [estado,codigo]
+            [estado, codigo]
         );
 
         if (participante.length === 0) {
@@ -487,36 +487,36 @@ const verificarParticipante = async (req, res) => {
 };
 
 const getMe = async (req, res) => {
-  const { id } = req.params;
+    const { id } = req.params;
 
-  try {
-    const [DatosUsuarios] = await pool.query(queryMe, [id]);
+    try {
+        const [DatosUsuarios] = await pool.query(queryMe, [id]);
 
-    if (DatosUsuarios.length === 0) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
+        if (DatosUsuarios.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        const idRol = DatosUsuarios[0].idRol;
+        const idUsuario = DatosUsuarios[0].idUser;
+
+
+        res.status(200).json({
+            datosUsuario: DatosUsuarios[0]
+        });
+    } catch (error) {
+        console.error('Error al obtener detalles de producción:', error);
+        res.status(500).json({ error: 'Error al obtener detalles de producción' });
     }
-
-    const idRol = DatosUsuarios[0].idRol;
-    const idUsuario = DatosUsuarios[0].idUser;
-
-
-    res.status(200).json({
-      datosUsuario: DatosUsuarios[0]
-    });
-  } catch (error) {
-    console.error('Error al obtener detalles de producción:', error);
-    res.status(500).json({ error: 'Error al obtener detalles de producción' });
-  }
 };
 
 const getConfiguraciones = async (req, res) => {
-  const { userId } = req.params;
+    const { userId } = req.params;
 
-  if (!userId) {
-    return res.status(400).json({ message: 'userId es requerido' });
-  }
+    if (!userId) {
+        return res.status(400).json({ message: 'userId es requerido' });
+    }
 
-  const query = `
+    const query = `
     SELECT 
       rc.id,
       c.descripcion AS configuracion,
@@ -529,23 +529,23 @@ const getConfiguraciones = async (req, res) => {
       rc.userId = ?
   `;
 
-  try {
-    const [result] = await pool.query(query, [userId]);
+    try {
+        const [result] = await pool.query(query, [userId]);
 
-    if (result.length === 0) {
-      return res.status(404).json({ message: 'No se encontraron configuraciones' });
+        if (result.length === 0) {
+            return res.status(404).json({ message: 'No se encontraron configuraciones' });
+        }
+
+        res.status(200).json(result);
+
+    } catch (err) {
+        console.error('Error al obtener configuraciones:', err.message);
+        res.status(500).json({ message: 'Error al obtener las configuraciones' });
     }
-
-    res.status(200).json(result);
-
-  } catch (err) {
-    console.error('Error al obtener configuraciones:', err.message);
-    res.status(500).json({ message: 'Error al obtener las configuraciones' });
-  }
 };
 
-const getEmpresa = async (req,res) =>{
-    const {evento_id} = req.params
+const getEmpresa = async (req, res) => {
+    const { evento_id } = req.params
     const query = `
         SELECT 
             r.* 
@@ -554,7 +554,7 @@ const getEmpresa = async (req,res) =>{
         LEFT JOIN evento e ON e.id = r.evento_id
         WHERE e.codigo = ?`
     try {
-        const [result] = await pool.query(query,[evento_id])
+        const [result] = await pool.query(query, [evento_id])
         res.status(200).json(result);
     } catch (error) {
         console.error('Error al obtener configuraciones:', err.message);
@@ -568,7 +568,7 @@ const getComprobacion = async (req, res) => {
     try {
         // Buscar primero en empresa
         const [resultEmpresa] = await pool.query(
-            `SELECT * FROM empresa WHERE codigo = ?`,
+            "SELECT * FROM empresa WHERE codigo = ?",
             [codigo]
         );
 
@@ -582,7 +582,12 @@ const getComprobacion = async (req, res) => {
 
         // Si no existe en empresa, buscar en codigo_registro
         const [resultRegistro] = await pool.query(
-            `SELECT * FROM codigo_registro WHERE codigo = ?`,
+            `
+  SELECT *
+  FROM codigo_registro
+  WHERE codigo = ?
+    AND estado = 'DISPONIBLE'
+  `,
             [codigo]
         );
 
@@ -597,7 +602,7 @@ const getComprobacion = async (req, res) => {
         // No se encontró en ninguna tabla
         return res.status(404).json({
             success: false,
-            message: "Código no encontrado"
+            message: "Código no encontrado o no disponible",
         });
 
     } catch (error) {
@@ -609,7 +614,7 @@ const getComprobacion = async (req, res) => {
     }
 };
 
-module.exports={
-    getConfiguraciones,getEventos,getEventosCode,getCamposCode,getParticipantes,getEventoCodigo,
-    getCamposPVCode,verificarParticipante, getMe, getEmpresa, getComprobacion
+module.exports = {
+    getConfiguraciones, getEventos, getEventosCode, getCamposCode, getParticipantes, getEventoCodigo,
+    getCamposPVCode, verificarParticipante, getMe, getEmpresa, getComprobacion
 }

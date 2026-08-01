@@ -1,5 +1,5 @@
 const multer = require("multer");
-const {pool} = require("../database.js");
+const { pool } = require("../database.js");
 const jwt = require('jsonwebtoken');
 const csv = require("csv-parser");
 const xlsx = require("xlsx");
@@ -9,86 +9,89 @@ const moment = require('moment');
 const QRCode = require("qrcode");
 const { v4: uuidv4 } = require("uuid");
 const { default: axios } = require("axios");
+const { Resend } = require("resend");
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 //--------------------------------------------------------
 const generarCodigo = (longitud = 10) => {
-  const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let codigo = '';
+    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let codigo = '';
 
-  for (let i = 0; i < longitud; i++) {
-    codigo += caracteres.charAt(
-      Math.floor(Math.random() * caracteres.length)
-    );
-  }
+    for (let i = 0; i < longitud; i++) {
+        codigo += caracteres.charAt(
+            Math.floor(Math.random() * caracteres.length)
+        );
+    }
 
-  return codigo;
+    return codigo;
 };
 
 const PostEvento = async (req, res) => {
-  const { nombre, descripcion, fechaEvento, tipo, cupos } = req.body;
+    const { nombre, descripcion, fechaEvento, tipo, cupos } = req.body;
 
-  const codigo = generarCodigo(10);
+    const codigo = generarCodigo(10);
 
-  const query = `
+    const query = `
     INSERT INTO evento (nombre, descripcion, fechaEvento, tipo, cupos, codigo)
     VALUES (?, ?, ?, ?, ?, ?)
   `;
 
-  try {
-    await pool.query(query, [
-      nombre,
-      descripcion,
-      fechaEvento,
-      tipo,
-      cupos,
-      codigo,
-    ]);
+    try {
+        await pool.query(query, [
+            nombre,
+            descripcion,
+            fechaEvento,
+            tipo,
+            cupos,
+            codigo,
+        ]);
 
-    return res.status(200).json({
-      ok: true,
-      message: "Proyecto registrado correctamente",
-      codigo,
-    });
-  } catch (error) {
-    console.error("Error:", error);
-    return res.status(500).json({
-      ok: false,
-      message: "Error interno del servidor",
-      error: error.message,
-    });
-  }
+        return res.status(200).json({
+            ok: true,
+            message: "Proyecto registrado correctamente",
+            codigo,
+        });
+    } catch (error) {
+        console.error("Error:", error);
+        return res.status(500).json({
+            ok: false,
+            message: "Error interno del servidor",
+            error: error.message,
+        });
+    }
 };
 
 const PostEmpresa = async (req, res) => {
-  const {evento_id} = req.params;
-  const { nombre, cupos } = req.body;
-  const codigo = uuidv4().replace(/-/g, "").slice(0, 10);
+    const { evento_id } = req.params;
+    const { nombre, cupos } = req.body;
+    const codigo = uuidv4().replace(/-/g, "").slice(0, 10);
 
-  const query = `
+    const query = `
     INSERT INTO empresa (codigo, nombre, cupos, evento_id)
     VALUES (?, ?, ?, ?)
   `;
 
-  try {
-    await pool.query(query, [
-        codigo,
-      nombre,
-      cupos,
-      evento_id
-    ]);
+    try {
+        await pool.query(query, [
+            codigo,
+            nombre,
+            cupos,
+            evento_id
+        ]);
 
-    return res.status(200).json({
-      ok: true,
-      message: "empresa registrado correctamente"
-    });
-  } catch (error) {
-    console.error("Error:", error);
-    return res.status(500).json({
-      ok: false,
-      message: "Error interno del servidor",
-      error: error.message,
-    });
-  }
+        return res.status(200).json({
+            ok: true,
+            message: "empresa registrado correctamente"
+        });
+    } catch (error) {
+        console.error("Error:", error);
+        return res.status(500).json({
+            ok: false,
+            message: "Error interno del servidor",
+            error: error.message,
+        });
+    }
 };
 
 const crearCampo = async (req, res) => {
@@ -123,7 +126,7 @@ const crearCampo = async (req, res) => {
                 orden
             )
             VALUES (?,?,?,?,?,?,?)
-        `,[
+        `, [
             eventoId,
             nombreInterno,
             label,
@@ -135,12 +138,12 @@ const crearCampo = async (req, res) => {
 
         const campoId = campo.insertId;
 
-        if(
-            ["select","radio","checkbox"].includes(tipo)
+        if (
+            ["select", "radio", "checkbox"].includes(tipo)
             && opciones?.length
-        ){
+        ) {
 
-            for(const opcion of opciones){
+            for (const opcion of opciones) {
 
                 await conn.query(`
                     INSERT INTO campo_opcion
@@ -151,7 +154,7 @@ const crearCampo = async (req, res) => {
                         orden
                     )
                     VALUES(?,?,?,?)
-                `,[
+                `, [
                     campoId,
                     opcion.texto,
                     opcion.valor,
@@ -165,7 +168,7 @@ const crearCampo = async (req, res) => {
         await conn.commit();
 
         res.json({
-            ok:true,
+            ok: true,
             campoId
         });
 
@@ -173,7 +176,7 @@ const crearCampo = async (req, res) => {
 
         await conn.rollback();
         console.log('error', error);
-        
+
 
         res.status(500).json(error);
 
@@ -191,6 +194,7 @@ const registrarParticipante = async (req, res) => {
         dni,
         nombres,
         apellidos,
+        correo,
         estado,
         codigoEmpresa,
         codigoEvento,
@@ -240,7 +244,10 @@ const registrarParticipante = async (req, res) => {
                 return res.status(400).json({
                     success: false,
                     message: "Los nombres o apellidos no coinciden con el DNI.",
-                   
+                    datosReniec: {
+                        nombres: data.resultado.nombres,
+                        apellidos: `${data.resultado.apellido_paterno} ${data.resultado.apellido_materno}`
+                    }
                 });
 
             }
@@ -258,9 +265,8 @@ const registrarParticipante = async (req, res) => {
         const [evento] = await connection.query(
             `
             SELECT 
-                id,
-                tipo,
-                cupos
+                *,
+                DATE_FORMAT(fechaEvento, '%d-%m-%Y') AS FechaEvento
             FROM evento
             WHERE codigo = ?
             `,
@@ -268,35 +274,31 @@ const registrarParticipante = async (req, res) => {
                 codigoEvento
             ]
         );
-        console.log("evento", evento);
 
 
-        if(evento.length === 0){
+        if (evento.length === 0) {
 
             await connection.rollback();
 
             return res.status(404).json({
-                success:false,
-                message:"Evento no encontrado"
+                success: false,
+                message: "Evento no encontrado"
             });
 
         }
 
-
-
         const eventoId = evento[0].id;
-
         const tipoRegistro = evento[0].tipo;
-
         const cupos = evento[0].cupos;
-
-
+        const Titulo = evento[0].nombre;
+        const Descripcion = evento[0].descripcion;
+        const fechaEvento = evento[0].FechaEvento;
 
         let empresa = null;
 
-        if (codigoEmpresa){
+        if (codigoEmpresa) {
             const [result] = await connection.query(
-                `SELECT * FROM empresa WHERE codigo = ?`,[codigoEmpresa]
+                `SELECT * FROM empresa WHERE codigo = ?`, [codigoEmpresa]
             )
 
             if (result.length === 0) {
@@ -304,22 +306,22 @@ const registrarParticipante = async (req, res) => {
                 await connection.rollback();
 
                 return res.status(404).json({
-                    success:false,
-                    message:"Empresa no encontrada"
+                    success: false,
+                    message: "Empresa no encontrada"
                 });
 
             }
 
             empresa = result[0];
-            
 
-            if(empresa.cupos === 0){
+
+            if (empresa.cupos === 0) {
 
                 await connection.rollback();
 
                 return res.status(404).json({
-                    success:false,
-                    message:"Link sin cupos"
+                    success: false,
+                    message: "Link sin cupos"
                 });
 
             }
@@ -334,16 +336,16 @@ const registrarParticipante = async (req, res) => {
 
         // Validar código privado
 
-        if(tipoRegistro === "2" && !codigoEmpresa){
+        if (tipoRegistro === "2" && !codigoEmpresa) {
 
 
-            if(!codigoRegistro){
+            if (!codigoRegistro) {
 
                 await connection.rollback();
 
                 return res.status(400).json({
-                    success:false,
-                    message:"Debe ingresar código de registro"
+                    success: false,
+                    message: "Debe ingresar código de registro"
                 });
 
             }
@@ -366,15 +368,15 @@ const registrarParticipante = async (req, res) => {
 
 
 
-            if(codigo.length === 0){
+            if (codigo.length === 0) {
 
 
                 await connection.rollback();
 
 
                 return res.status(400).json({
-                    success:false,
-                    message:"Código inválido o ya utilizado"
+                    success: false,
+                    message: "Código inválido o ya utilizado"
                 });
 
 
@@ -417,25 +419,25 @@ const registrarParticipante = async (req, res) => {
             });
         }
 
-        if(tipoRegistro === "1" && cupos > 0 && !codigoEmpresa){
+        if (tipoRegistro === "1" && cupos > 0 && !codigoEmpresa) {
 
 
             const [updateEvento] = await connection.query(
-            `
+                `
                 UPDATE evento
                 SET cupos = cupos -1
                 WHERE codigo=?
                 AND cupos>0
             `,
-            [codigoEvento]
+                [codigoEvento]
             );
 
-            if(updateEvento.affectedRows === 0){
+            if (updateEvento.affectedRows === 0) {
                 await connection.rollback();
 
                 return res.status(400).json({
-                    success:false,
-                    message:"El evento ya no tiene cupos."
+                    success: false,
+                    message: "El evento ya no tiene cupos."
                 });
             }
 
@@ -481,43 +483,43 @@ const registrarParticipante = async (req, res) => {
 
         const participanteId = participante.insertId;
 
-        if (codigoEmpresa){
-            
+        if (codigoEmpresa) {
+
             const idEmpresa = empresa.id
 
             await connection.query(`
                 INSERT INTO empresa_participante(idParticipante,idEmpresa)
                 VALUES (?,?)
-                `,[participanteId,idEmpresa])
-            
+                `, [participanteId, idEmpresa])
+
             const [updateEmpresa] = await connection.query(
-            `
+                `
             UPDATE empresa
             SET cupos = cupos - 1
             WHERE codigo = ?
             AND cupos > 0
             `,
-            [codigoEmpresa]
+                [codigoEmpresa]
             );
 
-            if(updateEmpresa.affectedRows === 0){
+            if (updateEmpresa.affectedRows === 0) {
                 await connection.rollback();
 
                 return res.status(400).json({
-                    success:false,
-                    message:"La empresa ya no tiene cupos."
+                    success: false,
+                    message: "La empresa ya no tiene cupos."
                 });
             }
 
         }
 
-         
+
         // Guardar respuestas
 
-        if(respuestas && respuestas.length > 0){
+        if (respuestas && respuestas.length > 0) {
 
 
-            for(const respuesta of respuestas){
+            for (const respuesta of respuestas) {
 
 
                 await connection.query(
@@ -551,7 +553,7 @@ const registrarParticipante = async (req, res) => {
 
         // Marcar código como usado
 
-        if(tipoRegistro === "2" && !codigoEmpresa){
+        if (tipoRegistro === "2" && !codigoEmpresa) {
 
 
             await connection.query(
@@ -571,32 +573,101 @@ const registrarParticipante = async (req, res) => {
 
         }
 
-
-
-
-
         await connection.commit();
 
+        const qr = await QRCode.toDataURL(codigoPer);
 
-        const contenidoQR = `http://localhost:3000/verificar?codigo=${codigoPer}`;
+        if (tipoRegistro != "2") {
 
-        const qr = await QRCode.toDataURL(contenidoQR);
+            const qrBase64 = qr.replace(/^data:image\/png;base64,/, "");
+
+            await resend.emails.send({
+
+                from: "ADB <noreply@massalud.org.pe>",
+                to: correo,
+                subject: `Confirmación de inscripción - ${Titulo}`,
+
+                html: `
+        <!DOCTYPE html>
+        <html lang="es">
+        <body style="font-family: Arial; background:#f5f5f5; padding:30px;">
+
+            <table width="600" align="center"
+                style="background:#ffffff;border-radius:10px;padding:30px;">
+
+                <tr>
+                    <td align="center">
+                        <h1 style="color:#0d6efd;">
+                            ¡Registro exitoso!
+                        </h1>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>
+                        <h2>${Titulo}</h2>
+
+                        <p>
+                            <strong>Descripción:</strong><br>
+                            ${Descripcion}
+                        </p>
+
+                        <p>
+                            <strong>Fecha del evento:</strong><br>
+                            ${fechaEvento}
+                        </p>
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td align="center" style="padding:25px 0;">
+
+                        <img
+                            src="cid:qr-evento"
+                            alt="Código QR"
+                            width="220"
+                            height="220"
+                        />
+
+                    </td>
+                </tr>
+
+
+               
+
+            </table>
+
+        </body>
+        </html>
+        `,
+
+                attachments: [
+                    {
+                        filename: "qr-evento.png",
+                        content: qrBase64,
+                        contentType: "image/png",
+                        contentId: "qr-evento"
+                    }
+                ]
+            });
+        }
+
 
         return res.status(201).json({
 
-            success:true,
+            success: true,
 
-            message:"Registro exitoso",
+            message: "Registro exitoso",
 
             participanteId,
-
-            qr
+            ...(tipoRegistro !== "2" && { qr })
 
         });
 
 
 
-    } catch(error){
+    } catch (error) {
 
 
         await connection.rollback();
@@ -608,15 +679,15 @@ const registrarParticipante = async (req, res) => {
 
         return res.status(500).json({
 
-            success:false,
+            success: false,
 
-            message:"Error al registrar participante"
+            message: "Error al registrar participante"
 
         });
 
 
 
-    } finally{
+    } finally {
 
 
         connection.release();
@@ -626,10 +697,12 @@ const registrarParticipante = async (req, res) => {
 
 };
 
+
+
 const generarCodigosEvento = async (req, res) => {
 
     try {
-      const {evento_id} = req.params;
+        const { evento_id } = req.params;
         const {
             cantidad
         } = req.body;
@@ -638,7 +711,7 @@ const generarCodigosEvento = async (req, res) => {
         if (!evento_id || !cantidad) {
 
             return res.status(400).json({
-                message:"Evento y cantidad son obligatorios"
+                message: "Evento y cantidad son obligatorios"
             });
 
         }
@@ -647,7 +720,7 @@ const generarCodigosEvento = async (req, res) => {
         const codigos = [];
 
 
-        for(let i = 0; i < cantidad; i++){
+        for (let i = 0; i < cantidad; i++) {
 
             let codigo;
 
@@ -656,7 +729,7 @@ const generarCodigosEvento = async (req, res) => {
 
             // Evitar códigos repetidos
 
-            while(existe){
+            while (existe) {
 
                 codigo = generarCodigo(10);
 
@@ -716,9 +789,9 @@ const generarCodigosEvento = async (req, res) => {
 
         return res.status(201).json({
 
-            message:"Códigos generados correctamente",
+            message: "Códigos generados correctamente",
 
-            cantidad:codigos.length,
+            cantidad: codigos.length,
 
             codigos,
 
@@ -726,16 +799,16 @@ const generarCodigosEvento = async (req, res) => {
 
 
 
-    } catch(error){
+    } catch (error) {
 
         console.log(error);
 
 
         return res.status(500).json({
 
-            message:"Error generando códigos",
+            message: "Error generando códigos",
 
-            error:error.message
+            error: error.message
 
         });
 
@@ -743,6 +816,6 @@ const generarCodigosEvento = async (req, res) => {
 
 };
 
-module.exports={
-  PostEvento,crearCampo, registrarParticipante, generarCodigosEvento, PostEmpresa
+module.exports = {
+    PostEvento, crearCampo, registrarParticipante, generarCodigosEvento, PostEmpresa
 }
