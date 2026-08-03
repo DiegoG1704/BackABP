@@ -8,7 +8,7 @@ module.exports = {
     // DB_HOST: 'localhost',
     // DB_PASSWORD: 'Qe7bqWl[I2Z,',
     // DB_DATABASE: 'garcgfzx_ABP'
-    PORT: 4000,
+    PORT: 4001,
     DB_USER: 'root',
     DB_HOST: 'localhost',
     DB_PASSWORD: '',
