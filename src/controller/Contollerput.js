@@ -1,6 +1,7 @@
 const multer = require("multer");
 const {pool} = require("../database.js");
 const jwt = require('jsonwebtoken');
+const bcrypt = require("bcryptjs");
 const csv = require("csv-parser");
 const xlsx = require("xlsx");
 const path = require('path');
@@ -74,14 +75,16 @@ const updatePassword = async (req, res) => {
 
     const currentPassword = rows[0].contraseña;
 
-    if (currentPassword !== password) {
+    const passwordCorrecta = await bcrypt.compare(password, currentPassword);
+    if (!passwordCorrecta) {
       return res.status(401).json({ message: "Contraseña actual incorrecta" });
     }
 
-    // 3. Actualizar contraseña
+    // 3. Actualizar contraseña (hasheada)
+    const hashedPassword = await bcrypt.hash(passwordNew, 10);
     await pool.query(
       "UPDATE usuario SET contraseña = ? WHERE idDatos = ?",
-      [passwordNew, id]
+      [hashedPassword, id]
     );
 
     return res.status(200).json({ message: "Contraseña actualizada correctamente" });

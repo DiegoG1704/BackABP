@@ -1,6 +1,7 @@
 const multer = require("multer");
 const {pool} = require("../database.js");
 const jwt = require('jsonwebtoken');
+const bcrypt = require("bcryptjs");
 const csv = require("csv-parser");
 const xlsx = require("xlsx");
 const path = require('path');
@@ -440,12 +441,21 @@ const FotoPerfil = async (req, res) => {
 };
 
 function generateAccessToken(payload) {
-    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '5h' });
+    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 }
 
 function generateRefreshToken(payload) {
-    return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '5h' });
+    return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' });
 }
+
+const cookieBase = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+    path: '/',
+};
+
+const cookieOptions = (maxAge) => ({ ...cookieBase, maxAge });
 
 const loginUsuario = async (req, res) => {
     const { usuario, contraseña } = req.body;
@@ -461,24 +471,26 @@ const loginUsuario = async (req, res) => {
         }
         const usuarioDb = rows[0];
 
-        
-        if (contraseña !== usuarioDb.contraseña) {
+        // Verificar la contraseña hasheada
+        const passwordCorrecta = await bcrypt.compare(contraseña, usuarioDb.contraseña);
+        if (!passwordCorrecta) {
             return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
         }
-        // Crear un objeto de payload para el token (puede incluir información adicional)
+
         const payload = { usuario };
 
         // Crear el access token (con vida corta)
-        const accessToken = jwt.sign(payload, 'Diego123', { expiresIn: '1h' });
+        const accessToken = generateAccessToken(payload);
 
-        // Crear el refresh token (con vida más larga, por ejemplo 30 días)
-        const refreshToken = jwt.sign(payload, 'Diego123', { expiresIn: '30d' });
+        // Crear el refresh token (con vida más larga)
+        const refresh_token = generateRefreshToken(payload);
 
-        // Guardar el refresh token en la base de datos o en algún lugar seguro
-        // Por ejemplo, podrías guardar el refresh token asociado al usuario en la base de datos.
+        // Guardar ambos tokens en cookies httpOnly
+        res.cookie('accessToken', accessToken, cookieOptions(60 * 60 * 1000));
+        res.cookie('refreshToken', refresh_token, cookieOptions(30 * 24 * 60 * 60 * 1000));
+
         res.status(200).json({
-            access_token: accessToken,
-            refresh_token: refreshToken,  // Devolver el refresh token también
+            message: 'Inicio de sesión exitoso',
             usuario: usuarioDb.nombre,
             apellido: usuarioDb.apellido,
             id: usuarioDb.id
@@ -491,28 +503,24 @@ const loginUsuario = async (req, res) => {
 };
 
 const refreshToken = async (req, res) => {
-    const { refresh_token } = req.body;
+    const refresh_token = req.cookies?.refreshToken;
 
     if (!refresh_token) {
-        return res.status(400).json({ error: 'Refresh token es requerido' });
+        return res.status(401).json({ error: 'Refresh token es requerido' });
     }
 
     try {
         // Verificar el refresh token
-        jwt.verify(refresh_token, 'Diego123', async (err, decoded) => {
-            if (err) {
-                return res.status(403).json({ message: 'Refresh token inválido o expirado' });
-            }
+        const decoded = jwt.verify(refresh_token, process.env.JWT_REFRESH_SECRET);
 
-            // Crear un nuevo access token
-            const newAccessToken = jwt.sign({ usuario: decoded.usuario }, 'Diego123', { expiresIn: '1h' });
+        // Crear un nuevo access token
+        const newAccessToken = generateAccessToken({ usuario: decoded.usuario });
 
-            res.status(200).json({ access_token: newAccessToken });
-        });
+        res.cookie('accessToken', newAccessToken, cookieOptions(60 * 60 * 1000));
 
+        return res.status(200).json({ message: 'Token renovado correctamente' });
     } catch (error) {
-        console.error('Error al renovar el token:', error);
-        res.status(500).json({ message: 'Error al renovar el token' });
+        return res.status(403).json({ message: 'Refresh token inválido o expirado' });
     }
 };
 
@@ -547,26 +555,26 @@ const refreshToken = async (req, res) => {
 // };
 
 const verificarToken = (req, res, next) => {
-    // Obtener el token del encabezado Authorization
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-  
+    // Obtener el token de la cookie o del encabezado Authorization
+    const token = req.cookies?.accessToken || req.header('Authorization')?.replace('Bearer ', '');
+
     if (!token) {
-      return res.status(401).json({ error: 'Acceso denegado. Token no proporcionado.' });
+        return res.status(401).json({ error: 'Acceso denegado. Token no proporcionado.' });
     }
-  
+
     try {
-      // Verificar el token utilizando la clave secreta
-      const decoded = jwt.verify(token, 'Diego123');
-  
-      // Almacenar los datos del usuario decodificados en el request (opcional)
-      req.user = decoded;
-  
-      // Continuar con la siguiente función de middleware o ruta
-      next();
+        // Verificar el token utilizando la clave secreta
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // Almacenar los datos del usuario decodificados en el request (opcional)
+        req.user = decoded;
+
+        // Continuar con la siguiente función de middleware o ruta
+        next();
     } catch (error) {
-      return res.status(400).json({ error: 'Token no válido' });
+        return res.status(400).json({ error: 'Token no válido' });
     }
-  };
+};
 
 const postTelefono = async (req, res) => {
     const { id } = req.params; // El id del afiliado
@@ -676,17 +684,9 @@ const posMetodo = async (req, res) => {
 const logoutUsuario= async (req, res) => {
     try {
         // Eliminar las cookies de acceso y refresco
-        res.clearCookie('accessToken', {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'None',
-        });
+        res.clearCookie('accessToken', cookieBase);
 
-        res.clearCookie('refreshToken', {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'None',
-        });
+        res.clearCookie('refreshToken', cookieBase);
 
         // Responder con éxito
         return res.status(200).json({ message: 'Logout exitoso' });
