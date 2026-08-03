@@ -16,7 +16,7 @@ const app = express();
 // const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config();
 const corsOptions = {
-    origin: ['http://localhost:3000','http://localhost:5000'], // Orígenes permitidos
+    origin: ['http://localhost:3000','http://localhost:4000','http://eventos.asociaciondebodegueros.com','http://dashboard.eventos.asociaciondebodegueros.com'], // Orígenes permitidos
     methods: ['OPTIONS', 'GET', 'POST', 'PUT', 'DELETE','PATCH'], // Métodos HTTP permitidos
     credentials: true, // Permite enviar cookies y encabezados de autorización
 };
