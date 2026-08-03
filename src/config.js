@@ -1,16 +1,11 @@
 const { config } = require("dotenv");
 
+config();
 
-config()
 module.exports = {
-    // PORT: 3000,
-    // DB_USER: 'garcgfzx_MasSalud',
-    // DB_HOST: 'localhost',
-    // DB_PASSWORD: 'Qe7bqWl[I2Z,',
-    // DB_DATABASE: 'garcgfzx_ABP'
-    PORT: 4001,
-    DB_USER: 'root',
-    DB_HOST: 'localhost',
-    DB_PASSWORD: '',
-    DB_DATABASE: 'formulario'
-  };
+  PORT: process.env.PORT || 4001,
+  DB_USER: process.env.DB_USER || "root",
+  DB_HOST: process.env.DB_HOST || "localhost",
+  DB_PASSWORD: process.env.DB_PASSWORD || "",
+  DB_DATABASE: process.env.DB_DATABASE || "formulario",
+};
