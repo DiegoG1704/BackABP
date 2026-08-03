@@ -191,6 +191,7 @@ const crearCampo = async (req, res) => {
 const registrarParticipante = async (req, res) => {
 
     const {
+        tipo,
         dni,
         nombres,
         apellidos,
@@ -217,47 +218,49 @@ const registrarParticipante = async (req, res) => {
                 .toUpperCase();
 
         await connection.beginTransaction();
-        try {
-            const { data } = await axios.get(
-                `https://api.perudevs.com/api/v1/dni/complete?document=${dni}&key=${process.env.PERUDEV}`
-            );
+        if (Number(tipo) === 1) {
+            try {
+                const { data } = await axios.get(
+                    `https://api.perudevs.com/api/v1/dni/complete?document=${dni}&key=${process.env.PERUDEV}`
+                );
 
-            if (!data.resultado) {
+                if (!data.resultado) {
+                    await connection.rollback();
+
+                    return res.status(400).json({
+                        success: false,
+                        message: "No se pudo validar el DNI."
+                    });
+                }
+                const nombresApi = data.resultado.nombres;
+
+                const apellidosApi =
+                    `${data.resultado.apellido_paterno} ${data.resultado.apellido_materno}`;
+                if (
+                    normalizar(nombresApi) !== normalizar(nombres) ||
+                    normalizar(apellidosApi) !== normalizar(apellidos)
+                ) {
+
+                    await connection.rollback();
+
+                    return res.status(400).json({
+                        success: false,
+                        message: "Los nombres o apellidos no coinciden con el DNI.",
+                        datosReniec: {
+                            nombres: data.resultado.nombres,
+                            apellidos: `${data.resultado.apellido_paterno} ${data.resultado.apellido_materno}`
+                        }
+                    });
+
+                }
+            } catch (error) {
                 await connection.rollback();
 
-                return res.status(400).json({
+                return res.status(500).json({
                     success: false,
-                    message: "No se pudo validar el DNI."
+                    message: "Error al consultar el servicio de validación de DNI."
                 });
             }
-            const nombresApi = data.resultado.nombres;
-
-            const apellidosApi =
-                `${data.resultado.apellido_paterno} ${data.resultado.apellido_materno}`;
-            if (
-                normalizar(nombresApi) !== normalizar(nombres) ||
-                normalizar(apellidosApi) !== normalizar(apellidos)
-            ) {
-
-                await connection.rollback();
-
-                return res.status(400).json({
-                    success: false,
-                    message: "Los nombres o apellidos no coinciden con el DNI.",
-                    datosReniec: {
-                        nombres: data.resultado.nombres,
-                        apellidos: `${data.resultado.apellido_paterno} ${data.resultado.apellido_materno}`
-                    }
-                });
-
-            }
-        } catch (error) {
-            await connection.rollback();
-
-            return res.status(500).json({
-                success: false,
-                message: "Error al consultar el servicio de validación de DNI."
-            });
         }
 
 
@@ -578,78 +581,82 @@ const registrarParticipante = async (req, res) => {
         const qr = await QRCode.toDataURL(codigoPer);
 
         if (tipoRegistro != "2") {
-
-            const qrBase64 = qr.replace(/^data:image\/png;base64,/, "");
-
             await resend.emails.send({
-
-                from: "ADB <noreply@massalud.org.pe>",
+                from: "Massalud <onboarding@resend.dev>",
                 to: correo,
                 subject: `Confirmación de inscripción - ${Titulo}`,
-
                 html: `
-        <!DOCTYPE html>
-        <html lang="es">
-        <body style="font-family: Arial; background:#f5f5f5; padding:30px;">
+                <!DOCTYPE html>
+                <html lang="es">
+                <head>
+                    <meta charset="UTF-8">
+                </head>
+                <body style="font-family: Arial, Helvetica, sans-serif; background:#f5f5f5; padding:30px;">
+                    <table width="600" align="center" cellpadding="0" cellspacing="0"
+                        style="background:#ffffff;border-radius:10px;padding:30px;">
 
-            <table width="600" align="center"
-                style="background:#ffffff;border-radius:10px;padding:30px;">
+                        <tr>
+                            <td align="center">
+                                <h1 style="color:#0d6efd;margin-bottom:5px;">
+                                    ¡Registro exitoso!
+                                </h1>
 
-                <tr>
-                    <td align="center">
-                        <h1 style="color:#0d6efd;">
-                            ¡Registro exitoso!
-                        </h1>
-                    </td>
-                </tr>
+                                <p style="color:#555;">
+                                    Gracias por registrarte.
+                                </p>
+                            </td>
+                        </tr>
 
-                <tr>
-                    <td>
-                        <h2>${Titulo}</h2>
+                        <tr>
+                            <td>
+                                <hr>
+                            </td>
+                        </tr>
 
-                        <p>
-                            <strong>Descripción:</strong><br>
-                            ${Descripcion}
-                        </p>
+                        <tr>
+                            <td>
+                                <h2>${Titulo}</h2>
 
-                        <p>
-                            <strong>Fecha del evento:</strong><br>
-                            ${fechaEvento}
-                        </p>
-                    </td>
-                </tr>
+                                <p>
+                                    <strong>Descripción:</strong><br>
+                                    ${Descripcion}
+                                </p>
 
+                                <p>
+                                    <strong>Fecha del evento:</strong><br>
+                                    ${fechaEvento}
+                                </p>
+                            </td>
+                        </tr>
 
-                <tr>
-                    <td align="center" style="padding:25px 0;">
+                        <tr>
+                            <td align="center" style="padding:25px 0;">
+                                <img
+                                    src="${qr}"
+                                    alt="Código QR"
+                                    width="220"
+                                    height="220"
+                                    style="display:block;"
+                                />
+                            </td>
+                        </tr>
 
-                        <img
-                            src="cid:qr-evento"
-                            alt="Código QR"
-                            width="220"
-                            height="220"
-                        />
+                        <tr>
+                            <td align="center">
+                                <p style="font-size:14px;color:#666;">
+                                    Presenta este código QR el día del evento.
+                                </p>
 
-                    </td>
-                </tr>
+                                <p style="font-size:12px;color:#999;">
+                                    Código de participante: <strong>${codigoPer}</strong>
+                                </p>
+                            </td>
+                        </tr>
 
-
-               
-
-            </table>
-
-        </body>
-        </html>
-        `,
-
-                attachments: [
-                    {
-                        filename: "qr-evento.png",
-                        content: qrBase64,
-                        contentType: "image/png",
-                        contentId: "qr-evento"
-                    }
-                ]
+                    </table>
+                </body>
+                </html>
+                `,
             });
         }
 
@@ -661,7 +668,8 @@ const registrarParticipante = async (req, res) => {
             message: "Registro exitoso",
 
             participanteId,
-            ...(tipoRegistro !== "2" && { qr })
+
+            qr
 
         });
 
