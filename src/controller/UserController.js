@@ -1,32 +1,32 @@
 const multer = require("multer");
-const {pool} = require("../database.js");
+const { pool } = require("../database.js");
 const jwt = require('jsonwebtoken');
 const bcrypt = require("bcryptjs");
 const csv = require("csv-parser");
 const xlsx = require("xlsx");
 const path = require('path');
 const fs = require("fs");
-const moment = require('moment'); 
+const moment = require('moment');
 const { procesarVencimientos } = require("./ControllerGet.js");
 
 const crearUsuario = async (req, res) => {
     const {
-      dni, ruc, nombre, apellido, direccion, distritoId, 
-      nombreBodega, metodoAfiliacion, referencia, correo, 
-      observaciones, telefono, estadoWhatsapp, estadoGrupo,codigo
+        dni, ruc, nombre, apellido, direccion, distritoId,
+        nombreBodega, metodoAfiliacion, referencia, correo,
+        observaciones, telefono, estadoWhatsapp, estadoGrupo, codigo
     } = req.body;
-  
+
     // Verificar campos obligatorios
-    if (!dni || !nombre || !apellido || !distritoId || !correo || !nombreBodega || !estadoWhatsapp || !estadoGrupo || !telefono || !codigo ) {
-      return res.status(400).json({ error: "Faltan campos obligatorios" });
+    if (!dni || !nombre || !apellido || !distritoId || !correo || !nombreBodega || !estadoWhatsapp || !estadoGrupo || !telefono || !codigo) {
+        return res.status(400).json({ error: "Faltan campos obligatorios" });
     }
-  
+
     // Verificar si el RUC ya está registrado
     // const [existingRuc] = await pool.query('SELECT COUNT(*) AS count FROM Afiliados WHERE ruc = ?', [ruc]);
     // if (existingRuc[0].count > 0) {
     //   return res.status(400).json({ error: 'El RUC ya está registrado.' });
     // }
-  
+
     const query = `
       INSERT INTO Afiliados (
         dni, ruc, nombre, apellido, direccion, distritoId, 
@@ -34,39 +34,39 @@ const crearUsuario = async (req, res) => {
         estadoWhatsapp, estadoGrupo, referencia, correo, observaciones,codigo
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
     `;
-  
+
     const values = [
-      dni, ruc, nombre, apellido, direccion, distritoId, 
-      nombreBodega, metodoAfiliacion, estadoWhatsapp, estadoGrupo, 
-      referencia, correo, observaciones,codigo
+        dni, ruc, nombre, apellido, direccion, distritoId,
+        nombreBodega, metodoAfiliacion, estadoWhatsapp, estadoGrupo,
+        referencia, correo, observaciones, codigo
     ];
-  
+
     // Iniciar la transacción
     const connection = await pool.getConnection();
     try {
-      await connection.beginTransaction();
-  
-      // Insertar el usuario en Afiliados
-      const [response] = await connection.query(query, values);
-      const idUsuario = response.insertId;
-  
-      // Insertar el teléfono en la tabla telefono
-      const [responseTelf] = await connection.query('INSERT INTO telefono(numero, afiliadoId) VALUES (?, ?)', [telefono, idUsuario]);
-  
-      // Si todo es exitoso, hacer commit
-      await connection.commit();
-      res.status(200).json({ message: 'Registro exitoso' });
-  
+        await connection.beginTransaction();
+
+        // Insertar el usuario en Afiliados
+        const [response] = await connection.query(query, values);
+        const idUsuario = response.insertId;
+
+        // Insertar el teléfono en la tabla telefono
+        const [responseTelf] = await connection.query('INSERT INTO telefono(numero, afiliadoId) VALUES (?, ?)', [telefono, idUsuario]);
+
+        // Si todo es exitoso, hacer commit
+        await connection.commit();
+        res.status(200).json({ message: 'Registro exitoso' });
+
     } catch (error) {
-      // Si hay un error, hacer rollback
-      await connection.rollback();
-      console.error(error); // Opcional: para depuración
-      res.status(500).json({ error: 'Hubo un error al registrar el usuario. Inténtelo más tarde.' });
+        // Si hay un error, hacer rollback
+        await connection.rollback();
+        console.error(error); // Opcional: para depuración
+        res.status(500).json({ error: 'Hubo un error al registrar el usuario. Inténtelo más tarde.' });
     } finally {
-      // Liberar la conexión
-      connection.release();
+        // Liberar la conexión
+        connection.release();
     }
-  };
+};
 
 const getAfiliadosCount = async (req, res) => {
     const query = `
@@ -75,7 +75,7 @@ const getAfiliadosCount = async (req, res) => {
             SUM(CASE WHEN estadoSocio = 3 THEN 1 ELSE 0 END) AS suspendidos
         FROM Afiliados;
     `;
-    
+
     try {
         const [results] = await pool.query(query);
         res.status(200).json({ activos: results[0].activos, suspendidos: results[0].suspendidos });
@@ -84,7 +84,7 @@ const getAfiliadosCount = async (req, res) => {
         res.status(500).json({ message: 'Error al obtener la cantidad de afiliados' });
     }
 };
-  
+
 const getUsuario = async (req, res) => {
     const query = `
     SELECT 
@@ -196,8 +196,8 @@ const EditCampo = async (req, res) => {
     }
 };
 
-const getGrupo =async(req,res) =>{
-    const query ='SELECT * FROM grupo'
+const getGrupo = async (req, res) => {
+    const query = 'SELECT * FROM grupo'
     try {
         const [results] = await pool.query(query);
         res.status(200).json(results);
@@ -207,8 +207,8 @@ const getGrupo =async(req,res) =>{
     }
 }
 
-const getMetodo = async(req,res) =>{
-    const query ='SELECT * FROM metodoafiliacion'
+const getMetodo = async (req, res) => {
+    const query = 'SELECT * FROM metodoafiliacion'
     try {
         const [results] = await pool.query(query);
         res.status(200).json(results);
@@ -341,9 +341,9 @@ const PostPago = async (req, res) => {
 
 const editPersonal = async (req, res) => {
     const { id } = req.params;
-    const { dni, ruc, nombre, apellido} = req.body;
+    const { dni, ruc, nombre, apellido } = req.body;
 
-    console.log('Datos recibidos:', { dni, ruc, nombre, apellido});
+    console.log('Datos recibidos:', { dni, ruc, nombre, apellido });
 
     // La consulta SQL corregida
     const query = 'UPDATE afiliados SET dni = ?, ruc = ?, nombre = ?, apellido = ? WHERE id = ?';
@@ -362,7 +362,7 @@ const editPersonal = async (req, res) => {
 const Reiniciar = async (req, res) => {
     const { id } = req.params;  // Obtenemos el ID del socio desde los parámetros de la URL
     const estadoSocio = 1;  // Establecemos el estado del socio a "activo" (1)
-    
+
     // La consulta SQL para actualizar el estado del socio
     const query = 'UPDATE afiliados SET estadoSocio = ? WHERE id = ?';
 
@@ -387,7 +387,7 @@ const Reiniciar = async (req, res) => {
 const Suspender = async (req, res) => {
     const { id } = req.params;  // Obtenemos el ID del socio desde los parámetros de la URL
     const estadoSocio = 3;  // Establecemos el estado del socio a "activo" (1)
-    
+
     // La consulta SQL para actualizar el estado del socio
     const query = 'UPDATE afiliados SET estadoSocio = ? WHERE id = ?';
 
@@ -447,11 +447,10 @@ function generateAccessToken(payload) {
 function generateRefreshToken(payload) {
     return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' });
 }
-
 const cookieBase = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+    secure: true,
+    sameSite: 'None',
     path: '/',
 };
 
@@ -579,39 +578,39 @@ const verificarToken = (req, res, next) => {
 const postTelefono = async (req, res) => {
     const { id } = req.params; // El id del afiliado
     try {
-      const { numero } = req.body; // El número de teléfono que se recibe en el cuerpo de la solicitud
-  
-      // Insertar el número de teléfono en la tabla Telefono
-      const sql = 'INSERT INTO Telefono (numero, afiliadoId) VALUES (?, ?)';
-      const [results] = await pool.query(sql, [numero, id]);
-  
-      res.status(201).json({ message: 'Teléfono agregado exitosamente' });
+        const { numero } = req.body; // El número de teléfono que se recibe en el cuerpo de la solicitud
+
+        // Insertar el número de teléfono en la tabla Telefono
+        const sql = 'INSERT INTO Telefono (numero, afiliadoId) VALUES (?, ?)';
+        const [results] = await pool.query(sql, [numero, id]);
+
+        res.status(201).json({ message: 'Teléfono agregado exitosamente' });
     } catch (error) {
-      console.error('Error inserting data:', error);
-      return res.status(500).json({ error: 'Error inserting data' });
+        console.error('Error inserting data:', error);
+        return res.status(500).json({ error: 'Error inserting data' });
     }
-  };
+};
 
 const postFechaPago = async (req, res) => {
     const { id } = req.params; // El id del afiliado
     try {
-      // Obtener la fecha de hoy en formato 'YYYY-MM-DD'
-      const today = new Date();
-      const fecha = today.toISOString().split('T')[0]; // Esto obtiene solo la parte de la fecha 'YYYY-MM-DD'
-  
-      // Insertar la fecha en la tabla FechaPago
-      const sql = 'INSERT INTO fechaPago (fecha, afiliadoId) VALUES (?, ?)';
-      const [results] = await pool.query(sql, [fecha, id]);
-  
-      res.status(201).json({ 
-        message: 'Fecha agregada exitosamente', 
-        fechaIngresada: fecha // Imprimir la fecha ingresada
-      });
+        // Obtener la fecha de hoy en formato 'YYYY-MM-DD'
+        const today = new Date();
+        const fecha = today.toISOString().split('T')[0]; // Esto obtiene solo la parte de la fecha 'YYYY-MM-DD'
+
+        // Insertar la fecha en la tabla FechaPago
+        const sql = 'INSERT INTO fechaPago (fecha, afiliadoId) VALUES (?, ?)';
+        const [results] = await pool.query(sql, [fecha, id]);
+
+        res.status(201).json({
+            message: 'Fecha agregada exitosamente',
+            fechaIngresada: fecha // Imprimir la fecha ingresada
+        });
     } catch (error) {
-      console.error('Error inserting data:', error);
-      return res.status(500).json({ error: 'Error inserting data' });
+        console.error('Error inserting data:', error);
+        return res.status(500).json({ error: 'Error inserting data' });
     }
-  };  
+};
 
 const postRol = async (req, res) => {
     try {
@@ -621,7 +620,7 @@ const postRol = async (req, res) => {
         const sql = 'INSERT INTO Grupo (nombre) VALUES (?)';
         const [results] = await pool.query(sql, [nombre]);
 
-        res.status(201).json({message: 'Grupo creado exitosamente' });
+        res.status(201).json({ message: 'Grupo creado exitosamente' });
     } catch (error) {
         console.error('Error inserting data:', error);
         return res.status(500).json({ error: 'Error inserting data' });
@@ -636,7 +635,7 @@ const posGrupo = async (req, res) => {
         const sql = 'INSERT INTO grupo (nombre) VALUES (?)';
         const [results] = await pool.query(sql, [nombre]);
 
-        res.status(201).json({message: 'metodo de afiliacion creado exitosamente' });
+        res.status(201).json({ message: 'metodo de afiliacion creado exitosamente' });
     } catch (error) {
         console.error('Error inserting data:', error);
         return res.status(500).json({ error: 'Error inserting data' });
@@ -674,14 +673,14 @@ const posMetodo = async (req, res) => {
         const sql = 'INSERT INTO metodoafiliacion (nombre) VALUES (?)';
         const [results] = await pool.query(sql, [nombre]);
 
-        res.status(201).json({message: 'metodo de afiliacion creado exitosamente' });
+        res.status(201).json({ message: 'metodo de afiliacion creado exitosamente' });
     } catch (error) {
         console.error('Error inserting data:', error);
         return res.status(500).json({ error: 'Error inserting data' });
     }
 };
 
-const logoutUsuario= async (req, res) => {
+const logoutUsuario = async (req, res) => {
     try {
         // Eliminar las cookies de acceso y refresco
         res.clearCookie('accessToken', cookieBase);
@@ -786,13 +785,13 @@ const me = async (req, res) => {
             fotoPerfil: usuario.fotoPerfil,
             rol: usuario.rol,
             rol_id: usuario.rol_id,  // Incluir rol_id
-            clinica_id: usuario.clinica_id || null, 
-            estado: usuario.estado || 'No disponible', 
-            estadoPr: usuario.estadoPr || 'No disponible', 
-            codigo: usuario.codigo || 'No disponible', 
+            clinica_id: usuario.clinica_id || null,
+            estado: usuario.estado || 'No disponible',
+            estadoPr: usuario.estadoPr || 'No disponible',
+            codigo: usuario.codigo || 'No disponible',
             direccion: usuario.direccion || 'No disponible',  // Incluir dirección
             telefono: usuario.telefono || 'No disponible',  // Incluir teléfono
-            vistas: vistas 
+            vistas: vistas
         });
 
     } catch (error) {
@@ -851,7 +850,7 @@ const subirUsuariosDesdeExcel = (req, res) => {
 
     const results = [];
     const filePath = req.file.path;
-    
+
     // Verificar la extensión del archivo CSV
     const fileExtension = path.extname(filePath); // Usando path.extname para obtener la extensión del archivo
     if (fileExtension !== '.csv') {
@@ -865,7 +864,7 @@ const subirUsuariosDesdeExcel = (req, res) => {
         .on('end', () => {
             // Aquí puedes procesar los resultados del CSV
             console.log("Datos del archivo CSV:", results);
-            
+
             // Insertar los datos en la base de datos
             const insertQuery = `
                 INSERT INTO afiliados (dni, ruc, nombre, apellido, direccion, nombrebodega, referencia, correo, observaciones, codigo)
@@ -897,7 +896,7 @@ const subirUsuariosDesdeExcel = (req, res) => {
 
             // Eliminar el archivo después de procesarlo
             fs.unlinkSync(filePath);
-            
+
             return res.status(200).json({ message: "Archivo CSV procesado y datos insertados correctamente." });
         })
         .on('error', (error) => {
@@ -1337,16 +1336,16 @@ const AñoDesdeExcel = async (req, res) => {
 
         for (const user of results) {
             const { id, afiliadoId, año } = user;
-        
+
             if (!id || !afiliadoId || !año) {
                 codigosNoEncontrados.push(user);
                 continue;
             }
-        
+
             try {
                 const values = [año, id, afiliadoId];
                 const [result] = await pool.execute(updateQuery, values);
-        
+
                 if (result.affectedRows === 0) {
                     codigosNoEncontrados.push(user);
                 } else {
@@ -1356,7 +1355,7 @@ const AñoDesdeExcel = async (req, res) => {
                 console.error(`Error al procesar el registro id=${id}:`, err);
                 codigosNoEncontrados.push(user);
             }
-        }        
+        }
 
         fs.unlinkSync(filePath);
 
@@ -1374,9 +1373,9 @@ const AñoDesdeExcel = async (req, res) => {
 };
 
 module.exports = {
-    getUsuario, loginUsuario, postRol, crearUsuario, getUsuariosId,FotoPerfil,verificarToken,
-    refreshToken,me,logoutUsuario,
-    putTelefono,deleteTelefono,subirTelefonoDesdeExcel,subirFechasDesdeExcel,AñoDesdeExcel,
+    getUsuario, loginUsuario, postRol, crearUsuario, getUsuariosId, FotoPerfil, verificarToken,
+    refreshToken, me, logoutUsuario,
+    putTelefono, deleteTelefono, subirTelefonoDesdeExcel, subirFechasDesdeExcel, AñoDesdeExcel,
     Notificaciones,
     CreateMensagge,
     getAfiliadosCount,
@@ -1392,6 +1391,6 @@ module.exports = {
     editPersonal,
     Reiniciar,
     subirUsuariosDesdeExcel,
-    Suspender,upload,EditarEstadosDesdeExcel,EditarGrupoDesdeExcel,EditarDistritoDesdeExcel,postDistrito,
-    CambiarEstadoA2,CambiarEstadoA3
+    Suspender, upload, EditarEstadosDesdeExcel, EditarGrupoDesdeExcel, EditarDistritoDesdeExcel, postDistrito,
+    CambiarEstadoA2, CambiarEstadoA3
 };
