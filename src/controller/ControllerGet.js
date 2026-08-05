@@ -403,15 +403,11 @@ const getParticipantes = async (req, res) => {
 };
 
 const verificarParticipante = async (req, res) => {
-
     const { codigo } = req.params;
-    const estado = 'ACTIVO'
 
     const connection = await pool.getConnection();
 
     try {
-
-        // Buscar participante
         const [participante] = await connection.query(
             `
             SELECT
@@ -419,71 +415,58 @@ const verificarParticipante = async (req, res) => {
                 p.codigo,
                 p.estado,
                 p.fechaRegistro,
-                e.nombre AS evento
+                p.asistencia,
+                e.nombre AS evento,
+                p.dni,
+                p.nombres,
+                p.apellidos
             FROM participante p
             INNER JOIN evento e
                 ON e.id = p.evento_id
             WHERE p.estado = ? AND p.codigo = ?
             `,
-            [estado, codigo]
+            ['ACTIVO', codigo]
         );
 
         if (participante.length === 0) {
-
             return res.status(404).json({
                 success: false,
                 message: "Código QR inválido"
             });
-
         }
 
-        const participanteId = participante[0].id;
+        if (participante[0].asistencia) {
+            return res.status(409).json({
+                success: false,
+                message: "La asistencia ya fue registrada."
+            });
+        }
 
-        // Obtener respuestas del formulario
-        const [respuestas] = await connection.query(
-            `
-            SELECT
-                cf.label,
-                cf.nombreInterno,
-                cf.tipo,
-                rc.valor
-            FROM respuesta_campo rc
-            INNER JOIN campo_formulario cf
-                ON cf.id = rc.campo_id
-            WHERE rc.participante_id = ?
-            ORDER BY cf.orden
-            `,
-            [participanteId]
+        await connection.query(
+            `UPDATE participante
+             SET asistencia = NOW()
+             WHERE id = ?`,
+            [participante[0].id]
         );
 
         return res.status(200).json({
-
             success: true,
-
-            participante: participante[0],
-
-            respuestas
-
+            participante: {
+                ...participante[0],
+                asistencia: new Date()
+            }
         });
 
     } catch (error) {
-
         console.error(error);
 
         return res.status(500).json({
-
             success: false,
-
             message: "Error al verificar participante"
-
         });
-
     } finally {
-
         connection.release();
-
     }
-
 };
 
 const getMe = async (req, res) => {
