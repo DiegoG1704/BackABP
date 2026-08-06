@@ -654,6 +654,22 @@ const registrarParticipante = async (req, res) => {
                     }
                 ]
             });
+            await resend.emails.send({
+                from: "ADB <noreply@massalud.org.pe>",
+                to: "info@asociaciondebodegueros.com.pe",
+                subject: `Nuevo registro - ${Titulo}`,
+
+                html: `
+        <div style="font-family: Arial, Helvetica, sans-serif;">
+            <h2>Nuevo registro</h2>
+
+            <p>
+                Se registró <strong>${nombre}</strong>
+                al evento <strong>${Titulo}</strong>.
+            </p>
+        </div>
+    `
+            });
         }
 
 
