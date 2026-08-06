@@ -105,7 +105,8 @@ const crearCampo = async (req, res) => {
         required,
         placeholder,
         orden,
-        opciones
+        opciones,
+        tipoFormulario
     } = req.body;
 
     const conn = await pool.getConnection();
@@ -123,9 +124,10 @@ const crearCampo = async (req, res) => {
                 tipo,
                 required,
                 placeholder,
-                orden
+                orden,
+                tipoFormulario
             )
-            VALUES (?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?)
         `, [
             eventoId,
             nombreInterno,
@@ -133,7 +135,8 @@ const crearCampo = async (req, res) => {
             tipo,
             required,
             placeholder,
-            orden
+            orden,
+            tipoFormulario
         ]);
 
         const campoId = campo.insertId;

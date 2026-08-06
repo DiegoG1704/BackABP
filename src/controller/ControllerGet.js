@@ -24,7 +24,7 @@ const getEventos = async (req, res) => {
 }
 
 const getCamposCode = async (req, res) => {
-    const { evento_id } = req.params;
+    const { evento_id, tipoFormulario } = req.params;
 
     const [evento] = await pool.query(
         `
@@ -71,7 +71,7 @@ const getCamposCode = async (req, res) => {
         LEFT JOIN campo_opcion co
             ON co.campo_id = cf.id
 
-        WHERE e.codigo = ?
+        WHERE cf.tipoFormulario in (?,3) AND e.codigo = ?
 
         ORDER BY
             cf.orden,
@@ -79,7 +79,7 @@ const getCamposCode = async (req, res) => {
     `;
 
     try {
-        const [rows] = await pool.query(query, [evento_id]);
+        const [rows] = await pool.query(query, [tipoFormulario,evento_id]);
 
         const campos = [];
 

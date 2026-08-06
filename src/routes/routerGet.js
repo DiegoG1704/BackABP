@@ -13,7 +13,7 @@ routerGet.get('/getEventoCode/:codigo',getEventosCode)
 
 routerGet.get('/getEventos',verificarToken,getEventos)
 
-routerGet.get('/getCampos/:evento_id',getCamposCode)
+routerGet.get('/getCampos/:evento_id/:tipoFormulario',getCamposCode)
 
 routerGet.get('/getCamposPrivado/:evento_id',getCamposPVCode)
 
