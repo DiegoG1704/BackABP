@@ -27,5 +27,5 @@ routerGet.get("/getEmpresa/:evento_id",verificarToken, getEmpresa);
 
 routerGet.get('/getComprobacion/:codigo',getComprobacion)
 
-routerGet.get('/me/:id',getMe)
+routerGet.get('/me',verificarToken,getMe)
 module.exports = routerGet;

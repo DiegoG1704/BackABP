@@ -470,7 +470,7 @@ const verificarParticipante = async (req, res) => {
 };
 
 const getMe = async (req, res) => {
-    const { id } = req.params;
+    const { id } = req.user;
 
     try {
         const [DatosUsuarios] = await pool.query(queryMe, [id]);
