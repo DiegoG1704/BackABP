@@ -581,82 +581,78 @@ const registrarParticipante = async (req, res) => {
         const qr = await QRCode.toDataURL(codigoPer);
 
         if (tipoRegistro != "2") {
+
+            const qrBase64 = qr.replace(/^data:image\/png;base64,/, "");
+
             await resend.emails.send({
-                from: "Massalud <onboarding@resend.dev>",
+
+                from: "ADB <noreply@massalud.org.pe>",
                 to: correo,
                 subject: `Confirmación de inscripción - ${Titulo}`,
+
                 html: `
-                <!DOCTYPE html>
-                <html lang="es">
-                <head>
-                    <meta charset="UTF-8">
-                </head>
-                <body style="font-family: Arial, Helvetica, sans-serif; background:#f5f5f5; padding:30px;">
-                    <table width="600" align="center" cellpadding="0" cellspacing="0"
-                        style="background:#ffffff;border-radius:10px;padding:30px;">
+        <!DOCTYPE html>
+        <html lang="es">
+        <body style="font-family: Arial; background:#f5f5f5; padding:30px;">
 
-                        <tr>
-                            <td align="center">
-                                <h1 style="color:#0d6efd;margin-bottom:5px;">
-                                    ¡Registro exitoso!
-                                </h1>
+            <table width="600" align="center"
+                style="background:#ffffff;border-radius:10px;padding:30px;">
 
-                                <p style="color:#555;">
-                                    Gracias por registrarte.
-                                </p>
-                            </td>
-                        </tr>
+                <tr>
+                    <td align="center">
+                        <h1 style="color:#0d6efd;">
+                            ¡Registro exitoso!
+                        </h1>
+                    </td>
+                </tr>
 
-                        <tr>
-                            <td>
-                                <hr>
-                            </td>
-                        </tr>
+                <tr>
+                    <td>
+                        <h2>${Titulo}</h2>
 
-                        <tr>
-                            <td>
-                                <h2>${Titulo}</h2>
+                        <p>
+                            <strong>Descripción:</strong><br>
+                            ${Descripcion}
+                        </p>
 
-                                <p>
-                                    <strong>Descripción:</strong><br>
-                                    ${Descripcion}
-                                </p>
+                        <p>
+                            <strong>Fecha del evento:</strong><br>
+                            ${fechaEvento}
+                        </p>
+                    </td>
+                </tr>
 
-                                <p>
-                                    <strong>Fecha del evento:</strong><br>
-                                    ${fechaEvento}
-                                </p>
-                            </td>
-                        </tr>
 
-                        <tr>
-                            <td align="center" style="padding:25px 0;">
-                                <img
-                                    src="${qr}"
-                                    alt="Código QR"
-                                    width="220"
-                                    height="220"
-                                    style="display:block;"
-                                />
-                            </td>
-                        </tr>
+                <tr>
+                    <td align="center" style="padding:25px 0;">
 
-                        <tr>
-                            <td align="center">
-                                <p style="font-size:14px;color:#666;">
-                                    Presenta este código QR el día del evento.
-                                </p>
+                        <img
+                            src="cid:qr-evento"
+                            alt="Código QR"
+                            width="220"
+                            height="220"
+                        />
 
-                                <p style="font-size:12px;color:#999;">
-                                    Código de participante: <strong>${codigoPer}</strong>
-                                </p>
-                            </td>
-                        </tr>
+                    </td>
+                </tr>
 
-                    </table>
-                </body>
-                </html>
-                `,
+
+               
+
+            </table>
+
+        </body>
+        </html>
+        `,
+
+                attachments: [
+                    {
+                        filename: "qr-evento.png",
+                        content: qrBase64,
+                        contentType: "image/png",
+                        contentId: "qr-evento"
+                    }
+                ]
             });
         }
 
