@@ -667,7 +667,7 @@ const registrarParticipante = async (req, res) => {
             <h2>Nuevo registro</h2>
 
             <p>
-                Se registró <strong>${nombre}</strong>
+                Se registró <strong>${nombres}</strong>
                 al evento <strong>${Titulo}</strong>.
             </p>
         </div>
