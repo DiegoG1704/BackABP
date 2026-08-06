@@ -13,6 +13,7 @@ const { Resend } = require("resend");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+
 //--------------------------------------------------------
 const generarCodigo = (longitud = 10) => {
     const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -582,8 +583,11 @@ const registrarParticipante = async (req, res) => {
         await connection.commit();
 
         const qr = await QRCode.toDataURL(codigoPer);
-
+        
         if (tipoRegistro !== "2") {
+            console.log("enviando correo")
+
+
 
             const qrBase64 = qr.replace(/^data:image\/png;base64,/, "");
 
@@ -680,11 +684,11 @@ const registrarParticipante = async (req, res) => {
 
             success: true,
 
-            message: "Registro exitoso",
+            message: "Registro exitososs",
 
             participanteId,
 
-            qr
+           ...(tipoRegistro !== "2" && { qr })
 
         });
 
