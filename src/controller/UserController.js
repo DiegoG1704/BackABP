@@ -476,7 +476,7 @@ const loginUsuario = async (req, res) => {
             return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
         }
 
-        const payload = { usuario };
+        const payload = { id: usuarioDb.id, usuario: usuarioDb.usuario };
 
         // Crear el access token (con vida corta)
         const accessToken = generateAccessToken(payload);
@@ -513,7 +513,7 @@ const refreshToken = async (req, res) => {
         const decoded = jwt.verify(refresh_token, process.env.JWT_REFRESH_SECRET);
 
         // Crear un nuevo access token
-        const newAccessToken = generateAccessToken({ usuario: decoded.usuario });
+        const newAccessToken = generateAccessToken({ id: decoded.id, usuario: decoded.usuario });
 
         res.cookie('accessToken', newAccessToken, cookieOptions(60 * 60 * 1000));
 
