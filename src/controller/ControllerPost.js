@@ -583,7 +583,7 @@ const registrarParticipante = async (req, res) => {
 
         const qr = await QRCode.toDataURL(codigoPer);
 
-        if (tipoRegistro != "2") {
+        if (tipoRegistro !== "2") {
 
             const qrBase64 = qr.replace(/^data:image\/png;base64,/, "");
 
