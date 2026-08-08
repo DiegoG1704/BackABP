@@ -3,7 +3,8 @@ const { verificarToken } = require("../controller/UserController.js");
 const { getConfiguraciones,getEventos,getEventosCode,getCamposCode,getParticipantes,getEventoCodigo,
     getCamposPVCode,verificarParticipante, getMe,
     getEmpresa,
-    getComprobacion} = require("../controller/ControllerGet.js");
+    getComprobacion,
+    getFechaEvento} = require("../controller/ControllerGet.js");
 
 const routerGet = Router();
 
@@ -21,11 +22,13 @@ routerGet.get('/getParticipantes/:codigo',verificarToken,getParticipantes)
 
 routerGet.get('/getEventoCodigo/:codigo',verificarToken,getEventoCodigo)
 
-routerGet.get("/getVerificar/:codigo", verificarParticipante);
+routerGet.get("/getVerificar/:fechaId/:codigo", verificarParticipante);
 
 routerGet.get("/getEmpresa/:evento_id",verificarToken, getEmpresa);
 
 routerGet.get('/getComprobacion/:codigo',getComprobacion)
+
+routerGet.get('/FechaEvento/:idEvento',verificarParticipante,getFechaEvento)
 
 routerGet.get('/me/:id',getMe)
 module.exports = routerGet;

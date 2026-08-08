@@ -403,7 +403,7 @@ const getParticipantes = async (req, res) => {
 };
 
 const verificarParticipante = async (req, res) => {
-    const { codigo } = req.params;
+    const { fechaId, codigo } = req.params;
 
     const connection = await pool.getConnection();
 
@@ -411,21 +411,35 @@ const verificarParticipante = async (req, res) => {
         const [participante] = await connection.query(
             `
             SELECT
+                r.id AS registroId,
+                r.idFechaEvento,
+                r.idParticipante,
+                r.codigo,
+                r.estadoIngreso,
+                r.horaIngreso,
+
                 p.id,
-                p.codigo,
-                p.estado,
+                p.codigo AS codigoParticipante,
+                p.estado AS estadoParticipante,
                 p.fechaRegistro,
-                p.asistencia,
-                e.nombre AS evento,
                 p.dni,
                 p.nombres,
-                p.apellidos
-            FROM participante p
-            INNER JOIN evento e
+                p.apellidos,
+
+                e.nombre AS evento
+
+            FROM registro_evento r
+
+            LEFT JOIN participante p
+                ON p.id = r.idParticipante
+
+            LEFT JOIN evento e
                 ON e.id = p.evento_id
-            WHERE p.estado = ? AND p.codigo = ?
+
+            WHERE r.idFechaEvento = ?
+              AND r.codigo = ?
             `,
-            ['ACTIVO', codigo]
+            [fechaId, codigo]
         );
 
         if (participante.length === 0) {
@@ -435,26 +449,70 @@ const verificarParticipante = async (req, res) => {
             });
         }
 
-        if (participante[0].asistencia) {
+        const registro = participante[0];
+
+        // Verificar si ya registró asistencia
+        if (registro.estado === 'Asistio') {
             return res.status(409).json({
                 success: false,
-                message: "La asistencia ya fue registrada."
+                message: "La asistencia ya fue registrada.",
+                participante: registro
             });
         }
 
-        await connection.query(
-            `UPDATE participante
-             SET asistencia = NOW()
-             WHERE id = ?`,
-            [participante[0].id]
+        // Registrar asistencia
+        const [resultado] = await connection.query(
+            `
+            UPDATE registro_evento
+            SET estadoIngreso = ?,
+                horaIngreso = CURTIME()
+            WHERE id = ?
+            `,
+            ['Asistio', registro.registroId]
+        );
+
+        if (resultado.affectedRows === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No se pudo registrar la asistencia"
+            });
+        }
+
+        // Obtener nuevamente el registro actualizado
+        const [actualizado] = await connection.query(
+            `
+            SELECT
+                r.id AS registroId,
+                r.idFechaEvento,
+                r.idParticipante,
+                r.codigo,
+                r.estadoIngreso,
+                r.horaIngreso,
+
+                p.id,
+                p.dni,
+                p.nombres,
+                p.apellidos,
+
+                e.nombre AS evento
+
+            FROM registro_evento r
+
+            LEFT JOIN participante p
+                ON p.id = r.idParticipante
+
+            LEFT JOIN evento e
+                ON e.id = p.evento_id
+
+            WHERE r.id = ?
+            `,
+            [registro.registroId]
         );
 
         return res.status(200).json({
             success: true,
-            participante: {
-                ...participante[0],
-                asistencia: new Date()
-            }
+            message: "Asistencia registrada correctamente",
+            participante: actualizado[0]
         });
 
     } catch (error) {
@@ -464,6 +522,7 @@ const verificarParticipante = async (req, res) => {
             success: false,
             message: "Error al verificar participante"
         });
+
     } finally {
         connection.release();
     }
@@ -545,6 +604,20 @@ const getEmpresa = async (req, res) => {
     }
 }
 
+const getFechaEvento = async (req, res) => {
+    const { idEvento } = req.params
+    const query = `
+        SELECT * FROM fecha_evento
+        WHERE idEvento = ?`
+    try {
+        const [result] = await pool.query(query, [idEvento])
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('Error al obtener configuraciones:', err.message);
+        res.status(500).json({ message: 'Error al obtener las configuraciones' });
+    }
+}
+
 const getComprobacion = async (req, res) => {
     const { codigo } = req.params;
 
@@ -599,5 +672,5 @@ const getComprobacion = async (req, res) => {
 
 module.exports = {
     getConfiguraciones, getEventos, getEventosCode, getCamposCode, getParticipantes, getEventoCodigo,
-    getCamposPVCode, verificarParticipante, getMe, getEmpresa, getComprobacion
+    getCamposPVCode, verificarParticipante, getMe, getEmpresa, getComprobacion, getFechaEvento
 }

@@ -827,6 +827,23 @@ const generarCodigosEvento = async (req, res) => {
 
 };
 
+const PostFechaEvento = async(req, res) => {
+    const {idEvento} = req.params;
+    const {fecha} = req.body;
+    const query = 'INSERT INTO fecha_evento(fecha, idEvento) VALUES (?,?)'
+    try {
+        await pool.query(query,[fecha,idEvento])
+    } catch (error) {
+         return res.status(500).json({
+
+            message: "Error generando códigos",
+
+            error: error.message
+
+        });
+    }
+}
+
 module.exports = {
-    PostEvento, crearCampo, registrarParticipante, generarCodigosEvento, PostEmpresa
+    PostEvento, crearCampo, registrarParticipante, generarCodigosEvento, PostEmpresa, PostFechaEvento
 }
