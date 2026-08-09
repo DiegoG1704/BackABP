@@ -3,7 +3,8 @@ const { verificarToken,upload } = require("../controller/UserController.js");
 const { 
     putCampo,putCampoNeg,  FotoPerfil,putCorreo,updateConfiguracion,updatePassword,FotoTaller,putCampoProyect,
     PutEstadoCambio,
-    putCuposEmpresa} = require("../controller/Contollerput.js");
+    putCuposEmpresa,
+    putEstadoIngreso} = require("../controller/Contollerput.js");
 
 const routerPut = Router();
 
@@ -26,4 +27,6 @@ routerPut.put('/PutProyectoCampo/:id',verificarToken,putCampoProyect)
 routerPut.put('/PutEstadoParticipante/:id',verificarToken,PutEstadoCambio)
 
 routerPut.put('/PutCuposEmpresa/:id',verificarToken,putCuposEmpresa)
+
+routerPut.put('/PutEstadoIngreso/:id',verificarToken,putEstadoIngreso)
 module.exports = routerPut;

@@ -341,7 +341,47 @@ const putCampoProyect = async (req, res) => {
   }
 };
 
+const putEstadoIngreso = async (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({
+      message: "id de registro_evento es requerido"
+    });
+  }
+
+  try {
+    const [result] = await pool.query(
+      `
+      UPDATE registro_evento
+      SET estadoIngreso = '2',
+          horaIngreso = NOW()
+      WHERE id = ?
+      `,
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Registro de evento no encontrado"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Ingreso registrado correctamente"
+    });
+  } catch (error) {
+    console.error("Error al registrar ingreso:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al registrar el ingreso"
+    });
+  }
+};
+
 module.exports = {
   putCampo, putCampoNeg, FotoPerfil, putCorreo, updateConfiguracion, updatePassword, FotoTaller, putCampoProyect,
-  PutEstadoCambio, putCuposEmpresa
+  PutEstadoCambio, putCuposEmpresa, putEstadoIngreso
 }
