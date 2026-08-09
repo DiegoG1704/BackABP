@@ -545,6 +545,161 @@ const getEmpresa = async (req, res) => {
     }
 }
 
+const getParticipanteRegistroByCode = async (req, res) => {
+    const { codigo, fecha_evento_id } = req.params;
+
+    if (!codigo || !fecha_evento_id) {
+        return res.status(400).json({
+            success: false,
+            message: "codigo y fecha_evento_id son requeridos"
+        });
+    }
+
+    const query = `
+        SELECT
+            r.id AS registro_id,
+            r.id_fecha_evento,
+            r.id_participante,
+            r.codigo_qr,
+            r.estado AS estado_registro,
+            DATE_FORMAT(r.fecha_registro, '%d-%m-%Y %H:%i:%s') AS fecha_registro,
+            DATE_FORMAT(r.fecha_ingreso, '%d-%m-%Y %H:%i:%s') AS fecha_ingreso,
+            p.evento_id,
+            DATE_FORMAT(p.fechaRegistro, '%d-%m-%Y') AS fechaRegistro,
+            p.estado AS estado_participante,
+            p.codigo AS codigo_participante,
+            p.dni,
+            p.nombres,
+            p.apellidos
+        FROM
+            registro_evento r
+        INNER JOIN
+            participante p ON p.id = r.id_participante
+        WHERE
+            r.codigo_qr = ? AND r.id_fecha_evento = ?
+    `;
+
+    try {
+        const [result] = await pool.query(query, [codigo, fecha_evento_id]);
+
+        if (result.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "No se encontró el participante para ese código y fecha de evento"
+            });
+        }
+
+        res.status(200).json(result[0]);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: "Error al obtener el participante"
+        });
+    }
+};
+
+const getParticipantesRegistro = async (req, res) => {
+    const { fecha_evento_id } = req.params;
+
+    if (!fecha_evento_id) {
+        return res.status(400).json({
+            success: false,
+            message: "fecha_evento_id es requerido"
+        });
+    }
+
+    const query = `
+        SELECT
+            r.id AS registro_id,
+            r.id_fecha_evento,
+            r.id_participante,
+            r.codigo_qr,
+            r.estado AS estado_registro,
+            DATE_FORMAT(r.fecha_registro, '%d-%m-%Y %H:%i:%s') AS fecha_registro,
+            DATE_FORMAT(r.fecha_ingreso, '%d-%m-%Y %H:%i:%s') AS fecha_ingreso,
+            p.evento_id,
+            DATE_FORMAT(p.fechaRegistro, '%d-%m-%Y') AS fechaRegistro,
+            p.estado AS estado_participante,
+            p.codigo AS codigo_participante,
+            p.dni,
+            p.nombres,
+            p.apellidos
+        FROM
+            registro_evento r
+        INNER JOIN
+            participante p ON p.id = r.id_participante
+        WHERE
+            r.id_fecha_evento = ?
+        ORDER BY
+            r.id ASC
+    `;
+
+    try {
+        const [result] = await pool.query(query, [fecha_evento_id]);
+
+        if (result.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "No se encontraron participantes registrados para esta fecha de evento"
+            });
+        }
+
+        res.status(200).json(result);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: "Error al obtener los participantes de la fecha de evento"
+        });
+    }
+};
+
+const getFechaEvento = async (req, res) => {
+    const { evento_id } = req.params;
+
+    if (!evento_id) {
+        return res.status(400).json({
+            success: false,
+            message: "evento_id es requerido"
+        });
+    }
+
+    const query = `
+        SELECT
+            id,
+            id_evento,
+            DATE_FORMAT(fecha, '%d-%m-%Y') AS fecha,
+            hora_inicio,
+            hora_fin
+        FROM
+            fecha_evento
+        WHERE
+            id_evento = ?
+        ORDER BY
+            fecha ASC
+    `;
+
+    try {
+        const [result] = await pool.query(query, [evento_id]);
+
+        if (result.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "No se encontraron fechas para el evento"
+            });
+        }
+
+        res.status(200).json(result);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: "Error al obtener las fechas del evento"
+        });
+    }
+};
+
 const getComprobacion = async (req, res) => {
     const { codigo } = req.params;
 
@@ -599,5 +754,6 @@ const getComprobacion = async (req, res) => {
 
 module.exports = {
     getConfiguraciones, getEventos, getEventosCode, getCamposCode, getParticipantes, getEventoCodigo,
-    getCamposPVCode, verificarParticipante, getMe, getEmpresa, getComprobacion
+    getCamposPVCode, verificarParticipante, getMe, getEmpresa, getComprobacion, getFechaEvento,
+    getParticipantesRegistro, getParticipanteRegistroByCode
 }
