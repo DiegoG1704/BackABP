@@ -1,54 +1,49 @@
 const multer = require("multer");
 const { pool } = require("../database.js");
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 const csv = require("csv-parser");
 const xlsx = require("xlsx");
-const path = require('path');
+const path = require("path");
 const fs = require("fs");
-const moment = require('moment');
+const moment = require("moment");
 const { queryMe, queryRutasUser } = require("../querys/queryGet.js");
 
 //--------------------------------------------------------------------
 
 const getEventos = async (req, res) => {
-    const query = 'SELECT * FROM evento'
-    try {
-        const [result] = await pool.query(query)
-        res.status(200).json(result);
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: "Error al obtener eventos"
-        });
-    }
-}
+  const query = "SELECT * FROM evento";
+  try {
+    const [result] = await pool.query(query);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener eventos",
+    });
+  }
+};
 
 const getCamposCode = async (req, res) => {
-    const { evento_id, tipoFormulario } = req.params;
+  const { evento_id, tipoFormulario } = req.params;
 
-    const [evento] = await pool.query(
-        `
+  const [evento] = await pool.query(
+    `
         SELECT 
             id,
             tipo
         FROM evento
         WHERE codigo = ?
         `,
-        [
-            evento_id
-        ]
-    );
+    [evento_id],
+  );
 
-
-    if (evento.length === 0) {
-
-        return res.status(404).json({
-            success: false,
-            message: "Evento no encontrado"
-        });
-
-    }
-    const query = `
+  if (evento.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: "Evento no encontrado",
+    });
+  }
+  const query = `
         SELECT
             cf.id,
             cf.evento_id,
@@ -78,80 +73,73 @@ const getCamposCode = async (req, res) => {
             co.orden;
     `;
 
-    try {
-        const [rows] = await pool.query(query, [tipoFormulario,evento_id]);
+  try {
+    const [rows] = await pool.query(query, [tipoFormulario, evento_id]);
 
-        const campos = [];
+    const campos = [];
 
-        rows.forEach((row) => {
+    rows.forEach((row) => {
+      let campo = campos.find((c) => c.id === row.id);
 
-            let campo = campos.find(c => c.id === row.id);
+      if (!campo) {
+        campo = {
+          id: row.id,
+          evento_id: row.evento_id,
+          nombreInterno: row.nombreInterno,
+          label: row.label,
+          tipo: row.tipo,
+          required: row.required,
+          placeholder: row.placeholder,
+          orden: row.orden,
+          opciones: [],
+        };
 
-            if (!campo) {
-                campo = {
-                    id: row.id,
-                    evento_id: row.evento_id,
-                    nombreInterno: row.nombreInterno,
-                    label: row.label,
-                    tipo: row.tipo,
-                    required: row.required,
-                    placeholder: row.placeholder,
-                    orden: row.orden,
-                    opciones: []
-                };
+        campos.push(campo);
+      }
 
-                campos.push(campo);
-            }
-
-            if (row.opcion_id) {
-                campo.opciones.push({
-                    id: row.opcion_id,
-                    texto: row.texto,
-                    valor: row.valor,
-                    orden: row.opcion_orden
-                });
-            }
-
+      if (row.opcion_id) {
+        campo.opciones.push({
+          id: row.opcion_id,
+          texto: row.texto,
+          valor: row.valor,
+          orden: row.opcion_orden,
         });
+      }
+    });
 
-        res.status(200).json(campos);
+    res.status(200).json(campos);
+  } catch (error) {
+    console.error(error);
 
-    } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            success: false,
-            message: "Error al obtener los campos del formulario"
-        });
-    }
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener los campos del formulario",
+    });
+  }
 };
 
 const getCamposPVCode = async (req, res) => {
-    const { evento_id } = req.params;
+  const { evento_id } = req.params;
 
-    const [evento] = await pool.query(
-        `
+  const [evento] = await pool.query(
+    `
         SELECT
             id,
             tipo
         FROM evento
         WHERE evento.codigo = ?
     `,
-        [evento_id]
-    );
+    [evento_id],
+  );
 
+  if (evento.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: "Evento no encontrado",
+    });
+  }
 
-
-    if (evento.length === 0) {
-
-        return res.status(404).json({
-            success: false,
-            message: "Evento no encontrado"
-        });
-
-    }
-
-    const query = `
+  const query = `
       SELECT
     cf.id,
     cf.evento_id,
@@ -188,94 +176,95 @@ ORDER BY
     co.orden;
     `;
 
-    try {
-        const [rows] = await pool.query(query, [evento[0].id]);
+  try {
+    const [rows] = await pool.query(query, [evento[0].id]);
 
-        const campos = [];
+    const campos = [];
 
-        rows.forEach((row) => {
+    rows.forEach((row) => {
+      let campo = campos.find((c) => c.id === row.id);
 
-            let campo = campos.find(c => c.id === row.id);
+      if (!campo) {
+        campo = {
+          id: row.id,
+          evento_id: row.evento_id,
+          nombreInterno: row.nombreInterno,
+          label: row.label,
+          tipo: row.tipo,
+          required: row.required,
+          placeholder: row.placeholder,
+          orden: row.orden,
+          opciones: [],
+        };
 
-            if (!campo) {
-                campo = {
-                    id: row.id,
-                    evento_id: row.evento_id,
-                    nombreInterno: row.nombreInterno,
-                    label: row.label,
-                    tipo: row.tipo,
-                    required: row.required,
-                    placeholder: row.placeholder,
-                    orden: row.orden,
-                    opciones: []
-                };
+        campos.push(campo);
+      }
 
-                campos.push(campo);
-            }
-
-            if (row.opcion_id) {
-                campo.opciones.push({
-                    id: row.opcion_id,
-                    texto: row.texto,
-                    valor: row.valor,
-                    orden: row.opcion_orden
-                });
-            }
-
+      if (row.opcion_id) {
+        campo.opciones.push({
+          id: row.opcion_id,
+          texto: row.texto,
+          valor: row.valor,
+          orden: row.opcion_orden,
         });
+      }
+    });
 
-        res.status(200).json(campos);
+    res.status(200).json(campos);
+  } catch (error) {
+    console.error(error);
 
-    } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            success: false,
-            message: "Error al obtener los campos del formulario"
-        });
-    }
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener los campos del formulario",
+    });
+  }
 };
 
 const getEventosCode = async (req, res) => {
-    const { codigo } = req.params;
-    const query = 'SELECT * FROM evento WHERE codigo = ?'
-    try {
-        const [result] = await pool.query(query, [codigo])
-        res.status(200).json(result);
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: "Error al obtener eventos", error: error.message
-        });
-    }
-}
+  const { codigo } = req.params;
+  const query = "SELECT * FROM evento WHERE codigo = ?";
+  try {
+    const [result] = await pool.query(query, [codigo]);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener eventos",
+      error: error.message,
+    });
+  }
+};
 
 const getEventoCodigo = async (req, res) => {
-    const { codigo } = req.params;
-    // LEFT JOIN participante p ON p.evento_id = e.id
-    try {
-        const [result] = await pool.query(`
+  const { codigo } = req.params;
+  // LEFT JOIN participante p ON p.evento_id = e.id
+  try {
+    const [result] = await pool.query(
+      `
       SELECT 
         cr.* 
       FROM codigo_registro cr
       LEFT JOIN evento e ON e.id = cr.evento_id
       WHERE e.codigo = ?
-      `, [codigo])
-        res.status(200).json(result);
-    } catch (error) {
-        console.log(error);
-        res.status(500).json({
-            success: false,
-            message: "Error al obtener Actividades"
-        });
-    }
-}
+      `,
+      [codigo],
+    );
+    res.status(200).json(result);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener Actividades",
+    });
+  }
+};
 
 const getActividadesProyect = async (req, res) => {
-    const { codigo } = req.params;
-    try {
-        const [result] = await pool.query(
-            `SELECT 
+  const { codigo } = req.params;
+  try {
+    const [result] = await pool.query(
+      `SELECT 
           a.id,
           a.titulo,
           a.descripcion,
@@ -293,23 +282,24 @@ const getActividadesProyect = async (req, res) => {
       LEFT JOIN datos p ON p.id = a.personal
       LEFT JOIN datos c ON c.id = a.creadorAct
       LEFT JOIN areas s ON s.id = a.area
-      WHERE y.codigo = ?`, [codigo]);
-        res.status(200).json(result);
-    } catch (error) {
-        console.log(error);
+      WHERE y.codigo = ?`,
+      [codigo],
+    );
+    res.status(200).json(result);
+  } catch (error) {
+    console.log(error);
 
-        res.status(500).json({
-            success: false,
-            message: "Error al obtener Actividades"
-        });
-    }
-}
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener Actividades",
+    });
+  }
+};
 
 const getParticipantes = async (req, res) => {
+  const { codigo } = req.params;
 
-    const { codigo } = req.params;
-
-    const query = `
+  const query = `
         SELECT
             p.id AS participante_id,
             p.dni,
@@ -350,66 +340,58 @@ const getParticipantes = async (req, res) => {
             cf.orden;
     `;
 
-    try {
+  try {
+    const [rows] = await pool.query(query, [codigo]);
 
-        const [rows] = await pool.query(query, [codigo]);
+    const participantes = [];
 
-        const participantes = [];
+    rows.forEach((row) => {
+      let participante = participantes.find(
+        (p) => p.id === row.participante_id,
+      );
 
-        rows.forEach(row => {
+      if (!participante) {
+        participante = {
+          id: row.participante_id,
+          dni: row.dni,
+          nombres: row.nombres,
+          apellidos: row.apellidos,
+          nombreEmpresa: row.nombreEmpresa,
+          fechaRegistro: row.fechaRegistro,
+          codigo: row.codigo,
+          estado: row.estado,
+          respuestas: {},
+        };
 
-            let participante = participantes.find(
-                p => p.id === row.participante_id
-            );
+        participantes.push(participante);
+      }
 
-            if (!participante) {
+      participante.respuestas[row.nombreInterno] = {
+        label: row.label,
+        valor: row.valor,
+        tipo: row.tipo,
+      };
+    });
 
-                participante = {
-                    id: row.participante_id,
-                    dni: row.dni,
-                    nombres: row.nombres,
-                    apellidos: row.apellidos,
-                    nombreEmpresa: row.nombreEmpresa,
-                    fechaRegistro: row.fechaRegistro,
-                    codigo: row.codigo,
-                    estado: row.estado,
-                    respuestas: {}
-                };
+    res.json(participantes);
+  } catch (error) {
+    console.error(error);
 
-                participantes.push(participante);
-            }
-
-            participante.respuestas[row.nombreInterno] = {
-                label: row.label,
-                valor: row.valor,
-                tipo: row.tipo
-            };
-
-        });
-
-        res.json(participantes);
-
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            success: false,
-            message: "Error al obtener participantes"
-        });
-
-    }
-
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener participantes",
+    });
+  }
 };
 
 const verificarParticipante = async (req, res) => {
-    const { codigo } = req.params;
+  const { codigo } = req.params;
 
-    const connection = await pool.getConnection();
+  const connection = await pool.getConnection();
 
-    try {
-        const [participante] = await connection.query(
-            `
+  try {
+    const [participante] = await connection.query(
+      `
             SELECT
                 p.id,
                 p.codigo,
@@ -425,81 +407,79 @@ const verificarParticipante = async (req, res) => {
                 ON e.id = p.evento_id
             WHERE p.estado = ? AND p.codigo = ?
             `,
-            ['ACTIVO', codigo]
-        );
+      ["ACTIVO", codigo],
+    );
 
-        if (participante.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "Código QR inválido"
-            });
-        }
+    if (participante.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Código QR inválido",
+      });
+    }
 
-        if (participante[0].asistencia) {
-            return res.status(409).json({
-                success: false,
-                message: "La asistencia ya fue registrada."
-            });
-        }
+    if (participante[0].asistencia) {
+      return res.status(409).json({
+        success: false,
+        message: "La asistencia ya fue registrada.",
+      });
+    }
 
-        await connection.query(
-            `UPDATE participante
+    await connection.query(
+      `UPDATE participante
              SET asistencia = NOW()
              WHERE id = ?`,
-            [participante[0].id]
-        );
+      [participante[0].id],
+    );
 
-        return res.status(200).json({
-            success: true,
-            participante: {
-                ...participante[0],
-                asistencia: new Date()
-            }
-        });
+    return res.status(200).json({
+      success: true,
+      participante: {
+        ...participante[0],
+        asistencia: new Date(),
+      },
+    });
+  } catch (error) {
+    console.error(error);
 
-    } catch (error) {
-        console.error(error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Error al verificar participante"
-        });
-    } finally {
-        connection.release();
-    }
+    return res.status(500).json({
+      success: false,
+      message: "Error al verificar participante",
+    });
+  } finally {
+    connection.release();
+  }
 };
 
 const getMe = async (req, res) => {
-    const { id } = req.user;
+  const { id } = req.user;
 
-    try {
-        const [DatosUsuarios] = await pool.query(queryMe, [id]);
+  try {
+    const [DatosUsuarios] = await pool.query(queryMe, [id]);
 
-        if (DatosUsuarios.length === 0) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
-        }
-
-        const idRol = DatosUsuarios[0].idRol;
-        const idUsuario = DatosUsuarios[0].idUser;
-
-
-        res.status(200).json({
-            datosUsuario: DatosUsuarios[0]
-        });
-    } catch (error) {
-        console.error('Error al obtener detalles de producción:', error);
-        res.status(500).json({ error: 'Error al obtener detalles de producción' });
+    if (DatosUsuarios.length === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
     }
+
+    const idRol = DatosUsuarios[0].idRol;
+    const idUsuario = DatosUsuarios[0].idUser;
+
+    res.status(200).json({
+      datosUsuario: DatosUsuarios[0],
+    });
+  } catch (error) {
+    console.error("Error al obtener detalles de producción:", error);
+    res.status(500).json({ error: "Error al obtener detalles de producción" });
+  }
 };
 
 const getConfiguraciones = async (req, res) => {
-    const { userId } = req.params;
+  const { userId } = req.params;
 
-    if (!userId) {
-        return res.status(400).json({ message: 'userId es requerido' });
-    }
+  if (!userId) {
+    return res.status(400).json({ message: "userId es requerido" });
+  }
 
-    const query = `
+  const query = `
     SELECT 
       rc.id,
       c.descripcion AS configuracion,
@@ -512,50 +492,51 @@ const getConfiguraciones = async (req, res) => {
       rc.userId = ?
   `;
 
-    try {
-        const [result] = await pool.query(query, [userId]);
+  try {
+    const [result] = await pool.query(query, [userId]);
 
-        if (result.length === 0) {
-            return res.status(404).json({ message: 'No se encontraron configuraciones' });
-        }
-
-        res.status(200).json(result);
-
-    } catch (err) {
-        console.error('Error al obtener configuraciones:', err.message);
-        res.status(500).json({ message: 'Error al obtener las configuraciones' });
+    if (result.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No se encontraron configuraciones" });
     }
+
+    res.status(200).json(result);
+  } catch (err) {
+    console.error("Error al obtener configuraciones:", err.message);
+    res.status(500).json({ message: "Error al obtener las configuraciones" });
+  }
 };
 
 const getEmpresa = async (req, res) => {
-    const { evento_id } = req.params
-    const query = `
+  const { evento_id } = req.params;
+  const query = `
         SELECT 
             r.* 
         FROM 
             empresa r
         LEFT JOIN evento e ON e.id = r.evento_id
-        WHERE e.codigo = ?`
-    try {
-        const [result] = await pool.query(query, [evento_id])
-        res.status(200).json(result);
-    } catch (error) {
-        console.error('Error al obtener configuraciones:', err.message);
-        res.status(500).json({ message: 'Error al obtener las configuraciones' });
-    }
-}
+        WHERE e.codigo = ?`;
+  try {
+    const [result] = await pool.query(query, [evento_id]);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Error al obtener configuraciones:", err.message);
+    res.status(500).json({ message: "Error al obtener las configuraciones" });
+  }
+};
 
 const getParticipanteRegistroByCode = async (req, res) => {
-    const { codigo, fecha_evento_id } = req.params;
+  const { codigo, fecha_evento_id } = req.params;
 
-    if (!codigo || !fecha_evento_id) {
-        return res.status(400).json({
-            success: false,
-            message: "codigo y fecha_evento_id son requeridos"
-        });
-    }
+  if (!codigo || !fecha_evento_id) {
+    return res.status(400).json({
+      success: false,
+      message: "codigo y fecha_evento_id son requeridos",
+    });
+  }
 
-    const query = `
+  const query = `
         SELECT
             r.id AS registro_id,
             r.id_fecha_evento,
@@ -579,37 +560,38 @@ const getParticipanteRegistroByCode = async (req, res) => {
             r.codigo_qr = ? AND r.id_fecha_evento = ?
     `;
 
-    try {
-        const [result] = await pool.query(query, [codigo, fecha_evento_id]);
+  try {
+    const [result] = await pool.query(query, [codigo, fecha_evento_id]);
 
-        if (result.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "No se encontró el participante para ese código y fecha de evento"
-            });
-        }
-
-        res.status(200).json(result[0]);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            success: false,
-            message: "Error al obtener el participante"
-        });
+    if (result.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "No se encontró el participante para ese código y fecha de evento",
+      });
     }
+
+    res.status(200).json(result[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener el participante",
+    });
+  }
 };
 
 const getParticipantesRegistro = async (req, res) => {
-    const { fecha_evento_id } = req.params;
+  const { fecha_evento_id } = req.params;
 
-    if (!fecha_evento_id) {
-        return res.status(400).json({
-            success: false,
-            message: "fecha_evento_id es requerido"
-        });
-    }
+  if (!fecha_evento_id) {
+    return res.status(400).json({
+      success: false,
+      message: "fecha_evento_id es requerido",
+    });
+  }
 
-    const query = `
+  const query = `
         SELECT
             r.id AS registro_id,
             r.id_fecha_evento,
@@ -635,125 +617,135 @@ const getParticipantesRegistro = async (req, res) => {
             r.id ASC
     `;
 
-    try {
-        const [result] = await pool.query(query, [fecha_evento_id]);
+  try {
+    const [result] = await pool.query(query, [fecha_evento_id]);
 
-        if (result.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "No se encontraron participantes registrados para esta fecha de evento"
-            });
-        }
-
-        res.status(200).json(result);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            success: false,
-            message: "Error al obtener los participantes de la fecha de evento"
-        });
+    if (result.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "No se encontraron participantes registrados para esta fecha de evento",
+      });
     }
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener los participantes de la fecha de evento",
+    });
+  }
 };
 
 const getFechaEvento = async (req, res) => {
-    const { evento_id } = req.params;
+  const { evento_id } = req.params;
 
-    if (!evento_id) {
-        return res.status(400).json({
-            success: false,
-            message: "evento_id es requerido"
-        });
-    }
+  if (!evento_id) {
+    return res.status(400).json({
+      success: false,
+      message: "evento_id es requerido",
+    });
+  }
 
-    const query = `
+  const query = `
         SELECT
             id,
-            id_evento,
+            idEvento,
             DATE_FORMAT(fecha, '%d-%m-%Y') AS fecha,
-            hora_inicio,
-            hora_fin
+        
         FROM
             fecha_evento
         WHERE
-            id_evento = ?
+            idEvento = ?
         ORDER BY
             fecha ASC
     `;
 
-    try {
-        const [result] = await pool.query(query, [evento_id]);
+  try {
+    const [result] = await pool.query(query, [evento_id]);
 
-        if (result.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "No se encontraron fechas para el evento"
-            });
-        }
-
-        res.status(200).json(result);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            success: false,
-            message: "Error al obtener las fechas del evento"
-        });
+    if (result.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No se encontraron fechas para el evento",
+      });
     }
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener las fechas del evento",
+    });
+  }
 };
 
 const getComprobacion = async (req, res) => {
-    const { codigo } = req.params;
+  const { codigo } = req.params;
 
-    try {
-        // Buscar primero en empresa
-        const [resultEmpresa] = await pool.query(
-            "SELECT * FROM empresa WHERE codigo = ?",
-            [codigo]
-        );
+  try {
+    // Buscar primero en empresa
+    const [resultEmpresa] = await pool.query(
+      "SELECT * FROM empresa WHERE codigo = ?",
+      [codigo],
+    );
 
-        if (resultEmpresa.length > 0) {
-            return res.status(200).json({
-                success: true,
-                message: "Código verificado",
-                origen: "empresa"
-            });
-        }
+    if (resultEmpresa.length > 0) {
+      return res.status(200).json({
+        success: true,
+        message: "Código verificado",
+        origen: "empresa",
+      });
+    }
 
-        // Si no existe en empresa, buscar en codigo_registro
-        const [resultRegistro] = await pool.query(
-            `
+    // Si no existe en empresa, buscar en codigo_registro
+    const [resultRegistro] = await pool.query(
+      `
   SELECT *
   FROM codigo_registro
   WHERE codigo = ?
     AND estado = 'DISPONIBLE'
   `,
-            [codigo]
-        );
+      [codigo],
+    );
 
-        if (resultRegistro.length > 0) {
-            return res.status(200).json({
-                success: true,
-                message: "Código verificado",
-                origen: "codigo_registro"
-            });
-        }
-
-        // No se encontró en ninguna tabla
-        return res.status(404).json({
-            success: false,
-            message: "Código no encontrado o no disponible",
-        });
-
-    } catch (error) {
-        console.error("Error al verificar código:", error.message);
-        return res.status(500).json({
-            success: false,
-            message: "Error al verificar el código"
-        });
+    if (resultRegistro.length > 0) {
+      return res.status(200).json({
+        success: true,
+        message: "Código verificado",
+        origen: "codigo_registro",
+      });
     }
+
+    // No se encontró en ninguna tabla
+    return res.status(404).json({
+      success: false,
+      message: "Código no encontrado o no disponible",
+    });
+  } catch (error) {
+    console.error("Error al verificar código:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Error al verificar el código",
+    });
+  }
 };
 
 module.exports = {
-    getConfiguraciones, getEventos, getEventosCode, getCamposCode, getParticipantes, getEventoCodigo,
-    getCamposPVCode, verificarParticipante, getMe, getEmpresa, getComprobacion, getFechaEvento,
-    getParticipantesRegistro, getParticipanteRegistroByCode
-}
+  getConfiguraciones,
+  getEventos,
+  getEventosCode,
+  getCamposCode,
+  getParticipantes,
+  getEventoCodigo,
+  getCamposPVCode,
+  verificarParticipante,
+  getMe,
+  getEmpresa,
+  getComprobacion,
+  getFechaEvento,
+  getParticipantesRegistro,
+  getParticipanteRegistroByCode,
+};
