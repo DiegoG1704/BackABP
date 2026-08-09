@@ -592,29 +592,29 @@ const getParticipantesRegistro = async (req, res) => {
   }
 
   const query = `
-        SELECT
+       SELECT
             r.id AS registro_id,
-            r.id_fecha_evento,
-            r.id_participante,
-            r.codigo_qr,
-            r.estado AS estado_registro,
-            DATE_FORMAT(r.fecha_registro, '%d-%m-%Y %H:%i:%s') AS fecha_registro,
-            DATE_FORMAT(r.fecha_ingreso, '%d-%m-%Y %H:%i:%s') AS fecha_ingreso,
-            p.evento_id,
+            r.idFechaEvento,
+            r.idParticipante,
+            r.codigo,
+            r.estadoIngreso AS estado_registro,
+            
+            DATE_FORMAT(r.horaIngreso, '%d-%m-%Y %H:%i:%s') AS horaIngreso,
+        
             DATE_FORMAT(p.fechaRegistro, '%d-%m-%Y') AS fechaRegistro,
             p.estado AS estado_participante,
-            p.codigo AS codigo_participante,
+           
             p.dni,
             p.nombres,
             p.apellidos
         FROM
             registro_evento r
         INNER JOIN
-            participante p ON p.id = r.id_participante
+            participante p ON p.id = r.idParticipante
         WHERE
-            r.id_fecha_evento = ?
+            r.idFechaEvento = ?
         ORDER BY
-            r.id ASC
+            r.id ASC;
     `;
 
   try {
