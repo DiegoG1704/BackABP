@@ -652,7 +652,7 @@ const getFechaEvento = async (req, res) => {
         SELECT
             id,
             idEvento,
-            DATE_FORMAT(fecha, '%d-%m-%Y') AS fecha,
+            DATE_FORMAT(fecha, '%d-%m-%Y') AS fecha
         
         FROM
             fecha_evento
