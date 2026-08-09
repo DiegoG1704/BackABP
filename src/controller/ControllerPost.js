@@ -464,12 +464,14 @@ const registrarParticipante = async (req, res) => {
                 codigo,
                 dni,
                 nombres,
-                apellidos
+                apellidos,
+                correo
             )
             VALUES
             (
                 ?,
                 NOW(),
+                ?,
                 ?,
                 ?,
                 ?,
@@ -483,7 +485,8 @@ const registrarParticipante = async (req, res) => {
                 codigoPer,
                 dni,
                 nombres,
-                apellidos
+                apellidos,
+                correo
             ]
         );
 
