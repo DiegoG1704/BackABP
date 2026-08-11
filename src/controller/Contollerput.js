@@ -381,7 +381,82 @@ const putEstadoIngreso = async (req, res) => {
   }
 };
 
+const verificarParticipanteRegistro = async (req, res) => {
+  const { codigo, fecha_evento_id } = req.params;
+
+  if (!codigo || !fecha_evento_id) {
+    return res.status(400).json({
+      success: false,
+      message: "codigo y fecha_evento_id son requeridos",
+    });
+  }
+
+  const connection = await pool.getConnection();
+
+  try {
+    const [registro] = await connection.query(
+      `
+            SELECT
+                r.id AS registro_id,
+                r.idFechaEvento,
+                r.idParticipante,
+                r.codigo,
+                r.estadoIngreso AS estado_registro,
+                DATE_FORMAT(r.horaIngreso, '%d-%m-%Y %H:%i:%s') AS hora_ingreso,
+                p.dni,
+                p.nombres,
+                p.apellidos
+            FROM registro_evento r
+            INNER JOIN participante p
+                ON p.id = r.idParticipante
+            WHERE r.codigo = ? AND r.idFechaEvento = ?
+            `,
+      [codigo, fecha_evento_id],
+    );
+
+    if (registro.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Código QR inválido",
+      });
+    }
+
+    if (registro[0].estado_registro === "2") {
+      return res.status(409).json({
+        success: false,
+        message: "La asistencia ya fue registrada.",
+      });
+    }
+
+    await connection.query(
+      `UPDATE registro_evento
+             SET estadoIngreso = '2',
+                 horaIngreso = NOW()
+             WHERE id = ?`,
+      [registro[0].registro_id],
+    );
+
+    return res.status(200).json({
+      success: true,
+      registro: {
+        ...registro[0],
+        estado_registro: "2",
+        hora_ingreso: new Date(),
+      },
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Error al verificar participante",
+    });
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports = {
   putCampo, putCampoNeg, FotoPerfil, putCorreo, updateConfiguracion, updatePassword, FotoTaller, putCampoProyect,
-  PutEstadoCambio, putCuposEmpresa, putEstadoIngreso
+  PutEstadoCambio, putCuposEmpresa, putEstadoIngreso, verificarParticipanteRegistro
 }

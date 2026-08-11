@@ -4,7 +4,8 @@ const {
     putCampo,putCampoNeg,  FotoPerfil,putCorreo,updateConfiguracion,updatePassword,FotoTaller,putCampoProyect,
     PutEstadoCambio,
     putCuposEmpresa,
-    putEstadoIngreso} = require("../controller/Contollerput.js");
+    putEstadoIngreso,
+    verificarParticipanteRegistro} = require("../controller/Contollerput.js");
 
 const routerPut = Router();
 
@@ -29,4 +30,6 @@ routerPut.put('/PutEstadoParticipante/:id',verificarToken,PutEstadoCambio)
 routerPut.put('/PutCuposEmpresa/:id',verificarToken,putCuposEmpresa)
 
 routerPut.put('/PutEstadoIngreso/:id',verificarToken,putEstadoIngreso)
+
+routerPut.put('/VerificarParticipanteRegistro/:codigo/:fecha_evento_id',verificarParticipanteRegistro)
 module.exports = routerPut;
