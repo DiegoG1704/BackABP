@@ -10,6 +10,7 @@ const QRCode = require("qrcode");
 const { v4: uuidv4 } = require("uuid");
 const { default: axios } = require("axios");
 const { Resend } = require("resend");
+const csv = require('csv-parser');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -711,8 +712,6 @@ const registrarParticipante = async (req, res) => {
 
 };
 
-
-
 const generarCodigosEvento = async (req, res) => {
 
     try {
@@ -847,6 +846,135 @@ const PostFechaEvento = async(req, res) => {
     }
 }
 
+const subirInvitados = async (req, res) => {
+
+    if (!req.file || !req.file.path) {
+        return res.status(400).json({
+            error: "No se ha subido ningún archivo válido."
+        });
+    }
+
+    const filePath = req.file.path;
+    const results = [];
+
+    try {
+
+        // Verificar extensión
+        const fileExtension = path.extname(filePath).toLowerCase();
+
+        if (fileExtension !== ".csv") {
+            return res.status(400).json({
+                error: "El archivo debe ser un CSV."
+            });
+        }
+
+        // Leer CSV
+        await new Promise((resolve, reject) => {
+
+            fs.createReadStream(filePath)
+                .pipe(csv({
+                    separator: ";"
+                }))
+                .on("data", (data) => {
+                    results.push(data);
+                })
+                .on("end", resolve)
+                .on("error", reject);
+
+        });
+
+        if (results.length === 0) {
+            return res.status(400).json({
+                error: "El archivo CSV está vacío."
+            });
+        }
+
+        const insertQuery = `
+            INSERT INTO registro_evento
+            (idFechaEvento, idParticipante, codigo)
+            VALUES (?, ?, ?)
+        `;
+
+        const errores = [];
+        let insertados = 0;
+
+        for (let i = 0; i < results.length; i++) {
+
+            const re = results[i];
+
+            // Validar datos obligatorios
+            if (
+                !re.idFechaEvento ||
+                !re.idParticipante ||
+                !re.codigo
+            ) {
+                errores.push({
+                    fila: i + 2,
+                    datos: re,
+                    error: "Faltan datos obligatorios."
+                });
+
+                continue;
+            }
+
+            try {
+
+                await pool.execute(insertQuery, [
+                    re.idFechaEvento,
+                    re.idParticipante,
+                    re.codigo
+                ]);
+
+                insertados++;
+
+            } catch (err) {
+
+                console.error(
+                    `Error en fila ${i + 2}:`,
+                    err
+                );
+
+                errores.push({
+                    fila: i + 2,
+                    datos: re,
+                    error: err.message
+                });
+            }
+        }
+
+        // Eliminar archivo
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+
+        return res.status(200).json({
+            message: "Archivo CSV procesado.",
+            total: results.length,
+            insertados,
+            errores: errores.length,
+            detalleErrores: errores
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Error al procesar el archivo CSV:",
+            error
+        );
+
+        // Intentar eliminar archivo
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+
+        return res.status(500).json({
+            error: "Error al procesar el archivo CSV.",
+            detalle: error.message
+        });
+    }
+};
+
+
 module.exports = {
-    PostEvento, crearCampo, registrarParticipante, generarCodigosEvento, PostEmpresa, PostFechaEvento
+    PostEvento, crearCampo, registrarParticipante, generarCodigosEvento, PostEmpresa, PostFechaEvento, subirInvitados
 }

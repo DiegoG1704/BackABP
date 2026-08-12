@@ -6,7 +6,8 @@ const {
     registrarParticipante,
     generarCodigosEvento,
     PostEmpresa,
-    PostFechaEvento} = require("../controller/ControllerPost.js");
+    PostFechaEvento,
+    subirInvitados} = require("../controller/ControllerPost.js");
 
 
 const routerPost = Router();
@@ -22,4 +23,6 @@ routerPost.post('/PostGenerarCodigo/:evento_id',verificarToken,generarCodigosEve
 routerPost.post('/registrarParticipante',registrarParticipante)
 
 routerPost.post('/PostFechaEvento/:idEvento',verificarToken,PostFechaEvento)
+
+routerPost.post('/SubirInvitados',subirInvitados)
 module.exports = routerPost;
